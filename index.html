@@ -5,47 +5,307 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal Web CEPDECO</title>
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f6f9;
+            background-color: #f0f2f5;
             color: #333;
+            min-height: 100vh;
+        }
+        /* --- Pantalla de Inicio de Sesión --- */
+        .login-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
+            padding: 20px;
         }
-        .container {
-            text-align: center;
-            background: #ffffff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
         }
-        h1 {
+        .login-card h2 {
+            margin-bottom: 8px;
             color: #1a365d;
-            margin-bottom: 10px;
+            text-align: center;
         }
-        p {
-            font-size: 1.1rem;
-            color: #555;
+        .login-card p {
+            color: #666;
+            font-size: 0.9rem;
+            text-align: center;
+            margin-bottom: 20px;
         }
-        .badge {
-            display: inline-block;
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #444;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
             background-color: #2b6cb0;
             color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #1c4ed8;
+        }
+
+        /* --- Panel Principal (Dashboard) --- */
+        .app-container {
+            display: none; /* Oculto hasta iniciar sesión */
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #1a365d;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .role-badge {
+            background-color: #319795;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .btn-logout {
+            background: #e53e3e;
+            color: white;
+            border: none;
             padding: 6px 12px;
-            border-radius: 20px;
+            border-radius: 5px;
+            cursor: pointer;
             font-size: 0.85rem;
+        }
+        .btn-logout:hover {
+            background: #c53030;
+        }
+
+        /* --- Navegación Lateral y Vistas --- */
+        .main-layout {
+            display: flex;
+            flex: 1;
+        }
+        nav.sidebar {
+            width: 240px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+        }
+        .nav-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 25px;
+            text-align: left;
+            background: none;
+            border: none;
+            border-left: 4px solid transparent;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            background: #edf2f7;
+            color: #2b6cb0;
+        }
+        .nav-btn.active {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border-left-color: #2b6cb0;
+        }
+
+        main.content {
+            flex: 1;
+            padding: 30px;
+        }
+        .section-view {
+            display: none;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .section-view.active {
+            display: block;
+        }
+        .section-view h2 {
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+        .placeholder-box {
+            border: 2px dashed #cbd5e0;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            color: #a0aec0;
             margin-top: 15px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Portal Web CEPDECO</h1>
-        <p>¡Hola Mundo! El entorno base del proyecto ya está funcionando.</p>
-        <span class="badge">Entorno de Desarrollo (Staging)</span>
+
+    <!-- VISTA 1: FORMULARIO DE INICIO DE SESIÓN -->
+    <div id="login-screen" class="login-container">
+        <div class="login-card">
+            <h2>Portal CEPDECO</h2>
+            <p>Ingrese sus credenciales para acceder</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Usuario / Documento</label>
+                    <input type="text" id="username" placeholder="Ej. 1005123456" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Rol de Acceso</label>
+                    <select id="role">
+                        <option value="Estudiante">Estudiante</option>
+                        <option value="Docente">Docente</option>
+                        <option value="Administrador">Administrador</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Iniciar Sesión</button>
+            </form>
+        </div>
     </div>
+
+    <!-- VISTA 2: PANEL DE CONTROL (MENÚ INICIAL Y SECCIONES) -->
+    <div id="app-screen" class="app-container">
+        <header>
+            <div>
+                <h1 style="font-size: 1.2rem;">Portal Web CEPDECO</h1>
+            </div>
+            <div class="header-user">
+                <span>Bienvenido, <strong id="user-display">Usuario</strong></span>
+                <span id="role-display" class="role-badge">Estudiante</span>
+                <button onclick="logout()" class="btn-logout">Cerrar Sesión</button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- Barra Lateral de Navegación -->
+            <nav class="sidebar">
+                <button class="nav-btn active" onclick="showSection('inicio', this)">🏠 Inicio</button>
+                <button class="nav-btn" onclick="showSection('notas', this)">📊 Calificaciones</button>
+                <button class="nav-btn" onclick="showSection('certificados', this)">📜 Certificados (QR)</button>
+                <button class="nav-btn" onclick="showSection('pagos', this)">💳 Pagos (PSE)</button>
+            </nav>
+
+            <!-- Contenido Principal Dinámico -->
+            <main class="content">
+                <!-- Sección Inicio -->
+                <div id="sec-inicio" class="section-view active">
+                    <h2>Bienvenido al Portal Académico</h2>
+                    <p>Seleccione una opción del menú lateral para gestionar sus trámites académicos.</p>
+                </div>
+
+                <!-- Sección Notas -->
+                <div id="sec-notas" class="section-view">
+                    <h2>Módulo de Calificaciones</h2>
+                    <p>Consulta individual de boletines e ingreso de calificaciones por asignatura.</p>
+                    <div class="placeholder-box">
+                        [Próximamente: Tabla de materias, corte de notas e interfaz de carga para docentes]
+                    </div>
+                </div>
+
+                <!-- Sección Certificados -->
+                <div id="sec-certificados" class="section-view">
+                    <h2>Generación de Certificados Digitales</h2>
+                    <p>Solicite y descargue su certificado en formato PDF con código QR de verificación.</p>
+                    <div class="placeholder-box">
+                        [Próximamente: Botón de emisión de PDF y validación de código QR dinámico]
+                    </div>
+                </div>
+
+                <!-- Sección Pagos -->
+                <div id="sec-pagos" class="section-view">
+                    <h2>Recaudo de Pagos en Línea (Simulación PSE)</h2>
+                    <p>Consulte su estado de cuenta y realice el pago de trámites administrativos.</p>
+                    <div class="placeholder-box">
+                        [Próximamente: Entorno Sandbox para simulación de pago y actualización a Paz y Salvo]
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- LÓGICA JAVASCRIPT BÁSICA -->
+    <script>
+        // Manejar el envío del formulario de login
+        document.getElementById('login-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const role = document.getElementById('role').value;
+
+            // Actualizar datos en la cabecera
+            document.getElementById('user-display').textContent = username || 'Usuario';
+            document.getElementById('role-display').textContent = role;
+
+            // Ocultar login y mostrar panel principal
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+        });
+
+        // Cambiar entre secciones del menú
+        function showSection(sectionName, element) {
+            // Ocultar todas las secciones
+            const sections = document.querySelectorAll('.section-view');
+            sections.forEach(sec => sec.classList.remove('active'));
+
+            // Desmarcar todos los botones
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => btn.classList.remove('active'));
+
+            // Activar la sección seleccionada y el botón presionado
+            document.getElementById('sec-' + sectionName).classList.add('active');
+            element.classList.add('active');
+        }
+
+        // Cerrar Sesión y volver al Login
+        function logout() {
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('login-form').reset();
+        }
+    </script>
 </body>
 </html>
