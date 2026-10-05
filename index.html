@@ -269,20 +269,28 @@
     </div>
 
     <!-- LÓGICA JAVASCRIPT BÁSICA -->
+    
+       <!-- LÓGICA JAVASCRIPT BÁSICA CON VALIDACIÓN DE PRUEBA -->
     <script>
-        // Manejar el envío del formulario de login
+        // Manejar el envío del formulario de login con clave de prueba
         document.getElementById('login-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
             const role = document.getElementById('role').value;
 
-            // Actualizar datos en la cabecera
-            document.getElementById('user-display').textContent = username || 'Usuario';
-            document.getElementById('role-display').textContent = role;
+            // Validación de contraseña de prueba
+            if (password === "12345") {
+                // Actualizar datos en la cabecera
+                document.getElementById('user-display').textContent = username || 'Usuario';
+                document.getElementById('role-display').textContent = role;
 
-            // Ocultar login y mostrar panel principal
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('app-screen').style.display = 'flex';
+                // Ocultar login y mostrar panel principal
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'flex';
+            } else {
+                alert("Contraseña incorrecta. Usa la clave de prueba: 12345");
+            }
         });
 
         // Cambiar entre secciones del menú
@@ -307,5 +315,6 @@
             document.getElementById('login-form').reset();
         }
     </script>
+    
 </body>
 </html>
