@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Web CEPDECO</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #f0f2f5;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        /* --- Pantalla de Login --- */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-card h2 {
+            color: #1a365d;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+        .login-card p {
+            color: #666;
+            font-size: 0.88rem;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #444;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            background-color: #2b6cb0;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #1c4ed8;
+        }
+        .alert-info {
+            background: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #2b6cb0;
+            margin-top: 15px;
+        }
+
+        /* --- Panel Principal --- */
+        .app-container {
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #1a365d;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .role-badge {
+            background-color: #319795;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .btn-logout {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-logout:hover {
+            background: #c53030;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+        }
+        nav.sidebar {
+            width: 240px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+        }
+        .nav-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 25px;
+            text-align: left;
+            background: none;
+            border: none;
+            border-left: 4px solid transparent;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn:hover {
+            background: #edf2f7;
+            color: #2b6cb0;
+        }
+        .nav-btn.active {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border-left-color: #2b6cb0;
+        }
+
+        main.content {
+            flex: 1;
+            padding: 30px;
+        }
+        .section-view {
+            display: none;
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .section-view.active {
+            display: block;
+        }
+        .section-view h2 {
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+        .section-subtitle {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        /* --- Tablas y Componentes de Módulos --- */
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        table.data-table th, table.data-table td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        table.data-table th {
+            background-color: #f7fafc;
+            color: #4a5568;
+        }
+        .badge-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-paid { background: #c6f6d5; color: #22543d; }
+        .status-pending { background: #feebc8; color: #742a2a; }
+
+        /* Módulo Certificados */
+        .cert-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            margin-top: 15px;
+            background: #fafafa;
+        }
+        .qr-box {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 15px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #edf2f7;
+        }
+
+        /* Módulo Sandbox Pagos */
+        .payment-box {
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 480px;
+            background: #fff;
+            margin-top: 15px;
+        }
+</style>
+<script src="https://checkout.epayco.co/checkout.js"></script>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-container">
+    <div class="login-card">
+        <h2>Portal Web CEPDECO</h2>
+        <p>Acceso al sistema de gestión académica</p>
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Usuario</label>
+                <input type="text" id="username" placeholder="Ej. ceshernandez" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn-primary">Iniciar Sesión</button>
+            <p id="login-error" style="color:#c53030;font-size:.85rem;margin-top:10px;display:none"></p>
+        </form>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="app-container">
+    <header>
+        <h1 style="font-size:1.1rem;">Portal Web CEPDECO</h1>
+        <div class="header-user">
+            <span>Bienvenido, <strong id="user-display"></strong></span>
+            <span id="role-display" class="role-badge"></span>
+            <button onclick="logout()" class="btn-logout">Cerrar Sesión</button>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <nav class="sidebar" id="sidebar"></nav>
+
+        <main class="content">
+            <div id="msg" style="display:none;padding:10px 14px;border-radius:6px;margin-bottom:15px;font-size:.9rem"></div>
+
+            <div id="sec-inicio" class="section-view active">
+                <h2>Bienvenido al Portal Académico</h2>
+                <p class="section-subtitle">Seleccione una opción del menú lateral para gestionar sus trámites en CEPDECO.</p>
+            </div>
+
+            <!-- Calificaciones (estudiante) -->
+            <div id="sec-notas" class="section-view">
+                <h2>Mis Calificaciones</h2>
+                <p class="section-subtitle">Boletín por cortes (30% / 30% / 40%). El acumulado suma lo ya calificado.</p>
+                <table class="data-table">
+                    <thead><tr><th>Asignatura</th><th>Corte 1 (30%)</th><th>Corte 2 (30%)</th><th>Corte 3 (40%)</th><th>Acumulado</th></tr></thead>
+                    <tbody id="notas-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Gestión de notas (docente / admin) -->
+            <div id="sec-docente" class="section-view">
+                <h2>Registro de Calificaciones</h2>
+                <p class="section-subtitle">Seleccione asignatura, estudiante y corte para guardar la nota.</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+                    <select id="doc-asig" onchange="renderDocente()" style="padding:8px"></select>
+                    <select id="doc-est" style="padding:8px"></select>
+                    <select id="doc-corte" style="padding:8px"><option value="1">Corte 1</option><option value="2">Corte 2</option><option value="3">Corte 3</option></select>
+                    <input id="doc-nota" type="number" step="0.1" min="0" max="5" placeholder="Nota 0.0 - 5.0" style="padding:8px;width:130px">
+                    <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="guardarNota()">Guardar nota</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>Estudiante</th><th>Corte 1</th><th>Corte 2</th><th>Corte 3</th><th>Acumulado</th></tr></thead>
+                    <tbody id="doc-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Certificados -->
+            <div id="sec-certificados" class="section-view">
+                <h2>Módulo de Certificación Digital</h2>
+                <p class="section-subtitle">Certificados en PDF con código QR de verificación pública. Requiere un pago aprobado por certificado.</p>
+                <div class="cert-card">
+                    <h3>Certificado de Estudios y Paz y Salvo</h3>
+                    <p style="font-size:.85rem;color:#666;margin-top:5px;">Documento verificado digitalmente para trámites académicos.</p>
+                    <button class="btn-primary" style="margin-top:15px;width:auto;padding:10px 20px" onclick="generarCertificado()">📄 Generar Certificado PDF</button>
+                </div>
+                <table class="data-table">
+                    <thead><tr><th>Código</th><th>Documento</th><th>Emitido</th><th>Acción</th></tr></thead>
+                    <tbody id="cert-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Pagos -->
+            <div id="sec-pagos" class="section-view">
+                <h2>Recaudo de Pagos en Línea (ePayco Sandbox)</h2>
+                <p class="section-subtitle">Entorno de pruebas: no se transfiere dinero real.</p>
+                <button id="btn-pay" class="btn-primary" style="width:auto;padding:10px 20px" onclick="pagar()">💳 Pagar certificado con ePayco / PSE</button>
+                <table class="data-table">
+                    <thead><tr><th>Referencia</th><th>Monto</th><th>Estado</th><th>Fecha</th></tr></thead>
+                    <tbody id="pay-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Administración -->
+            <div id="sec-admin" class="section-view">
+                <h2>Administración</h2>
+                <p class="section-subtitle">Crear usuarios, asignaturas y matrículas.</p>
+
+                <h3>Nuevo usuario</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 20px">
+                    <input id="nu-user" placeholder="usuario" style="padding:8px">
+                    <input id="nu-nombre" placeholder="Nombre completo" style="padding:8px">
+                    <input id="nu-email" type="email" placeholder="correo" style="padding:8px">
+                    <input id="nu-pass" type="password" placeholder="clave (mín. 8)" style="padding:8px">
+                    <select id="nu-rol" style="padding:8px"><option>Estudiante</option><option>Docente</option><option>Administrador</option></select>
+                    <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="crearUsuario()">Crear</button>
+                </div>
+
+                <h3>Nueva asignatura</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 20px">
+                    <input id="na-nombre" placeholder="Nombre de la asignatura" style="padding:8px;min-width:260px">
+                    <select id="na-docente" style="padding:8px"></select>
+                    <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="crearAsignatura()">Crear</button>
+                </div>
+
+                <h3>Matricular estudiante</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 20px">
+                    <select id="nm-est" style="padding:8px"></select>
+                    <select id="nm-asig" style="padding:8px"></select>
+                    <button class="btn-primary" style="width:auto;padding:8px 16px" onclick="matricular()">Matricular</button>
+                </div>
+
+                <table class="data-table">
+                    <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th></tr></thead>
+                    <tbody id="adm-users"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => (n === null || n === undefined ? '-' : Number(n).toFixed(1));
+let token = sessionStorage.getItem('token');
+let user = JSON.parse(sessionStorage.getItem('user') || 'null');
+let docData = [];
+const refPayco = new URLSearchParams(location.search).get('ref_payco');
+
+function msg(texto, ok = true) {
+    const m = $('msg');
+    m.textContent = texto;
+    m.style.display = 'block';
+    m.style.background = ok ? '#c6f6d5' : '#fed7d7';
+    m.style.color = ok ? '#22543d' : '#742a2a';
+    clearTimeout(msg.t);
+    msg.t = setTimeout(() => (m.style.display = 'none'), 6000);
+}
+
+async function api(url, opts = {}) {
+    const res = await fetch(url, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(opts.headers || {}) },
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    if (res.status === 401 && token) { logout(); throw new Error('Tu sesión expiró, inicia sesión de nuevo'); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'Error en la solicitud');
+    return data;
+}
+
+// ---- Sesión ----
+$('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('login-error');
+    err.style.display = 'none';
+    try {
+        const data = await api('/api/auth/login', { method: 'POST', body: { username: $('username').value.trim(), password: $('password').value } });
+        token = data.token; user = data.user;
+        sessionStorage.setItem('token', token);
+        sessionStorage.setItem('user', JSON.stringify(user));
+        entrar();
+    } catch (ex) {
+        err.textContent = ex.message;
+        err.style.display = 'block';
+    }
+});
+
+function logout() {
+    token = null; user = null;
+    sessionStorage.clear();
+    $('app-screen').style.display = 'none';
+    $('login-screen').style.display = 'flex';
+    $('login-form').reset();
+}
+
+const MENU = {
+    Estudiante:    [['inicio', '🏠 Inicio'], ['notas', '📊 Calificaciones'], ['certificados', '📜 Certificados (QR)'], ['pagos', '💳 Pagos (ePayco)']],
+    Docente:       [['inicio', '🏠 Inicio'], ['docente', '📝 Registrar notas']],
+    Administrador: [['inicio', '🏠 Inicio'], ['docente', '📝 Registrar notas'], ['admin', '⚙️ Administración']]
+};
+
+function entrar() {
+    $('user-display').textContent = user.nombre;
+    $('role-display').textContent = user.rol;
+    $('login-screen').style.display = 'none';
+    $('app-screen').style.display = 'flex';
+    $('sidebar').innerHTML = '';
+    MENU[user.rol].forEach(([key, label], i) => {
+        const b = document.createElement('button');
+        b.className = 'nav-btn' + (i === 0 ? ' active' : '');
+        b.textContent = label;
+        b.onclick = () => showSection(key, b);
+        $('sidebar').appendChild(b);
+    });
+    showSection('inicio', $('sidebar').firstChild);
+    if (refPayco && user.rol === 'Estudiante') confirmarPago();
+}
+
+const LOADERS = { notas: cargarNotas, docente: cargarDocente, certificados: cargarCertificados, pagos: cargarPagos, admin: cargarAdmin };
+
+function showSection(name, btn) {
+    document.querySelectorAll('.section-view').forEach((s) => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
+    $('sec-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (LOADERS[name]) LOADERS[name]().catch((e) => msg(e.message, false));
+}
+
+// ---- Estudiante: notas ----
+async function cargarNotas() {
+    const { asignaturas } = await api('/api/notas');
+    $('notas-body').innerHTML = asignaturas.length
+        ? asignaturas.map((a) => `<tr><td>${esc(a.nombre)}</td>${a.notas.map((n) => `<td>${fmt(n)}</td>`).join('')}
+            <td><strong>${a.acumulado.toFixed(2)}</strong>${a.completa ? '' : ' <small>(parcial)</small>'}</td></tr>`).join('')
+        : '<tr><td colspan="5">Aún no tienes asignaturas matriculadas.</td></tr>';
+}
+
+// ---- Docente / Admin ----
+async function cargarDocente() {
+    docData = (await api('/api/docente/asignaturas')).asignaturas;
+    const prev = $('doc-asig').value;
+    $('doc-asig').innerHTML = docData.map((a) => `<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
+    if (prev) $('doc-asig').value = prev;
+    renderDocente();
+}
+
+function renderDocente() {
+    const a = docData.find((x) => String(x.id) === $('doc-asig').value);
+    const est = a ? a.estudiantes : [];
+    const prev = $('doc-est').value;
+    $('doc-est').innerHTML = est.map((s) => `<option value="${s.matricula_id}">${esc(s.nombre)}</option>`).join('');
+    if (prev) $('doc-est').value = prev;
+    $('doc-body').innerHTML = est.length
+        ? est.map((s) => `<tr><td>${esc(s.nombre)}</td>${s.notas.map((n) => `<td>${fmt(n)}</td>`).join('')}<td><strong>${s.acumulado.toFixed(2)}</strong></td></tr>`).join('')
+        : '<tr><td colspan="5">Sin estudiantes matriculados.</td></tr>';
+}
+
+async function guardarNota() {
+    try {
+        const r = await api('/api/docente/notas', { method: 'POST', body: { matricula_id: $('doc-est').value, corte: $('doc-corte').value, nota: $('doc-nota').value } });
+        msg(r.message);
+        $('doc-nota').value = '';
+        await cargarDocente();
+    } catch (e) { msg(e.message, false); }
+}
+
+// ---- Certificados ----
+async function cargarCertificados() {
+    const { certificados } = await api('/api/certificados/mios');
+    $('cert-body').innerHTML = certificados.length
+        ? certificados.map((c) => `<tr><td>${esc(c.codigo_verificacion)}</td><td>${esc(c.tipo_certificado)}</td>
+            <td>${new Date(c.fecha_emision).toLocaleDateString('es-CO')}</td>
+            <td><button class="btn-primary" style="width:auto;padding:6px 12px" onclick="verPdf('${esc(c.codigo_verificacion)}')">Ver PDF</button></td></tr>`).join('')
+        : '<tr><td colspan="4">Aún no has generado certificados.</td></tr>';
+}
+
+async function generarCertificado() {
+    try {
+        const r = await api('/api/certificados', { method: 'POST' });
+        msg('Certificado generado: ' + r.codigo);
+        await cargarCertificados();
+        verPdf(r.codigo);
+    } catch (e) { msg(e.message, false); }
+}
+
+async function verPdf(codigo) {
+    try {
+        const res = await fetch('/api/certificados/' + encodeURIComponent(codigo) + '/pdf', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) throw new Error('No se pudo abrir el PDF');
+        const url = URL.createObjectURL(await res.blob());
+        window.open(url, '_blank');
+    } catch (e) { msg(e.message, false); }
+}
+
+// ---- Pagos ----
+const ESTADOS = { ACCEPTED: ['PAZ Y SALVO', 'status-paid'], PENDING: ['PENDIENTE', 'status-pending'], REJECTED: ['RECHAZADO', 'status-pending'] };
+
+async function cargarPagos() {
+    const { transacciones } = await api('/api/pagos/estado');
+    $('pay-body').innerHTML = transacciones.length
+        ? transacciones.map((t) => {
+            const [txt, cls] = ESTADOS[t.estado] || [t.estado, 'status-pending'];
+            return `<tr><td>${esc(t.referencia_pago)}</td><td>$${Number(t.monto).toLocaleString('es-CO')} COP</td>
+                <td><span class="badge-status ${cls}">${txt}${t.usado ? ' · USADO' : ''}</span></td>
+                <td>${new Date(t.created_at).toLocaleString('es-CO')}</td></tr>`;
+        }).join('')
+        : '<tr><td colspan="4">Sin transacciones todavía.</td></tr>';
+}
+
+async function pagar() {
+    try {
+        const p = await api('/api/pagos/iniciar', { method: 'POST' });
+        const handler = ePayco.checkout.configure({ key: p.publicKey, test: true });
+        handler.open({
+            name: 'Expedición Certificado Académico',
+            description: 'Certificado de Estudios CEPDECO',
+            invoice: p.referencia,
+            currency: 'cop',
+            amount: String(p.monto),
+            tax_base: String(p.monto),
+            tax: '0',
+            country: 'co',
+            lang: 'es',
+            external: 'false',
+            confirmation: p.confirmationUrl,
+            response: location.origin + '/',
+            name_billing: user.nombre,
+            email_billing: user.email
+        });
+    } catch (e) { msg(e.message, false); }
+}
+
+// Al volver de ePayco con ?ref_payco=... se valida el pago contra ePayco
+async function confirmarPago() {
+    try {
+        const r = await api('/api/pagos/confirmar', { method: 'POST', body: { ref_payco: refPayco } });
+        history.replaceState({}, '', location.pathname);
+        const ok = r.estado === 'ACCEPTED';
+        msg(ok ? '✅ Pago aprobado. Ya puedes generar tu certificado.' : 'Estado del pago: ' + r.estado, ok);
+        const btn = [...document.querySelectorAll('.nav-btn')].find((b) => b.textContent.includes('Pagos'));
+        if (btn) showSection('pagos', btn);
+    } catch (e) { msg(e.message, false); }
+}
+
+// ---- Administración ----
+async function cargarAdmin() {
+    const { usuarios, asignaturas } = await api('/api/admin/resumen');
+    const opt = (list, label) => list.map((x) => `<option value="${x.id}">${esc(label(x))}</option>`).join('');
+    $('na-docente').innerHTML = '<option value="">(sin docente)</option>' + opt(usuarios.filter((u) => u.rol === 'Docente'), (u) => u.nombre_completo);
+    $('nm-est').innerHTML = opt(usuarios.filter((u) => u.rol === 'Estudiante'), (u) => u.nombre_completo);
+    $('nm-asig').innerHTML = opt(asignaturas, (a) => a.nombre);
+    $('adm-users').innerHTML = usuarios.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.nombre_completo)}</td><td>${esc(u.email)}</td><td>${esc(u.rol)}</td></tr>`).join('');
+}
+
+async function accionAdmin(url, body) {
+    try { msg((await api(url, { method: 'POST', body })).message); await cargarAdmin(); }
+    catch (e) { msg(e.message, false); }
+}
+const crearUsuario = () => accionAdmin('/api/admin/usuarios', { username: $('nu-user').value, nombre_completo: $('nu-nombre').value, email: $('nu-email').value, password: $('nu-pass').value, rol: $('nu-rol').value });
+const crearAsignatura = () => accionAdmin('/api/admin/asignaturas', { nombre: $('na-nombre').value, docente_id: $('na-docente').value || null });
+const matricular = () => accionAdmin('/api/admin/matriculas', { estudiante_id: $('nm-est').value, asignatura_id: $('nm-asig').value });
+
+// Restaurar sesión si ya había token
+if (token && user) entrar();
+</script>
+</body>
+</html>

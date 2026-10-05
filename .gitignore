@@ -1,32 +1,17 @@
-# Archivos de configuración de entorno (Contienen contraseñas o llaves secretas)
+# Secretos (NUNCA subir)
 .env
-.env.local
+.env.*
+!.env.example
 *.env
+_env
 
-# Entornos virtuales de Python
-venv/
-.venv/
-env/
-__pycache__/
-*.pyc
-
-# Dependencias de Node.js
 node_modules/
 npm-debug.log*
-
-# Archivos de compilación y temporales
 dist/
 build/
 *.tmp
-
-# Archivos generados dinámicamente durante pruebas (ej. PDFs de prueba)
-/temp_pdfs/
-
-# Configuración de editores / IDEs
 .vscode/
 .idea/
 *.swp
-
-# Archivos del sistema operativo
 .DS_Store
 Thumbs.db
