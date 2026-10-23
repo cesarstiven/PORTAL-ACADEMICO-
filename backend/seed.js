@@ -1,6 +1,7 @@
 // Datos de demo. Uso: node seed.js   (correr DESPUÉS de schema.sql)
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const { periodoActual } = require('./academico');
 
 const PASS = process.env.SEED_PASSWORD || 'Cepdeco2026*';
 
@@ -24,6 +25,14 @@ async function main() {
         );
     }
 
+    // Programa de los estudiantes demo (los programas los crea schema.sql)
+    for (const [username, programa] of [['estudiante1', 'Auxiliar Administrativo'], ['estudiante2', 'Auxiliar en Enfermería']]) {
+        await db.query(
+            `UPDATE usuarios SET programa_id = (SELECT id FROM programas WHERE nombre = $2) WHERE username = $1`,
+            [username, programa]
+        );
+    }
+
     const docente = (await db.query(`SELECT id FROM usuarios WHERE username='docente1'`)).rows[0].id;
     for (const nombre of ['Taller de Proyectos Interdisciplinarios 3 (TPI3)', 'Sistemas de Control y Automatización']) {
         await db.query(
@@ -33,10 +42,11 @@ async function main() {
         );
     }
     await db.query(
-        `INSERT INTO matriculas (estudiante_id, asignatura_id)
-         SELECT u.id, a.id FROM usuarios u CROSS JOIN asignaturas a
+        `INSERT INTO matriculas (estudiante_id, asignatura_id, periodo)
+         SELECT u.id, a.id, $1 FROM usuarios u CROSS JOIN asignaturas a
          WHERE u.username IN ('estudiante1','estudiante2')
-         ON CONFLICT DO NOTHING`
+         ON CONFLICT DO NOTHING`,
+        [periodoActual()]
     );
     await db.query(
         `INSERT INTO calificaciones (matricula_id, corte, nota)

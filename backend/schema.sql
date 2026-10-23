@@ -63,3 +63,39 @@ CREATE TABLE IF NOT EXISTS calificaciones (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (matricula_id, corte)
 );
+
+-- Programas técnicos laborales (resoluciones confirmadas por CEPDECO)
+CREATE TABLE IF NOT EXISTS programas (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(150) UNIQUE NOT NULL,
+    resolucion VARCHAR(20) NOT NULL
+);
+INSERT INTO programas (nombre, resolucion) VALUES
+    ('Asistente de Educación para la Primera Infancia', '007785'),
+    ('Seguridad Ocupacional y Laboral', '007837'),
+    ('Auxiliar Administrativo', '007778'),
+    ('Auxiliar en Servicios Farmacéuticos', '011644'),
+    ('Auxiliar en Enfermería', '011689')
+ON CONFLICT (nombre) DO NOTHING;
+
+-- Cada estudiante queda ligado a un programa
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS programa_id INT REFERENCES programas(id) ON DELETE SET NULL;
+
+-- Cuentas con clave temporal: deben cambiarla al entrar
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS debe_cambiar_clave BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Cada asignatura puede pertenecer a un curso (programa); NULL = asignatura general
+ALTER TABLE asignaturas ADD COLUMN IF NOT EXISTS programa_id INT REFERENCES programas(id) ON DELETE SET NULL;
+
+-- Periodo de la matrícula: 2026-A (enero a junio) / 2026-B (julio a diciembre)
+ALTER TABLE matriculas ADD COLUMN IF NOT EXISTS periodo VARCHAR(7);
+UPDATE matriculas
+SET periodo = TO_CHAR(created_at, 'YYYY') || CASE WHEN EXTRACT(MONTH FROM created_at) <= 6 THEN '-A' ELSE '-B' END
+WHERE periodo IS NULL;
+ALTER TABLE matriculas ALTER COLUMN periodo SET NOT NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'matriculas_periodo_formato') THEN
+        ALTER TABLE matriculas ADD CONSTRAINT matriculas_periodo_formato CHECK (periodo ~ '^[0-9]{4}-[AB]$');
+    END IF;
+END $$;

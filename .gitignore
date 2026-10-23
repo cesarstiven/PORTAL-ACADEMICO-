@@ -4,6 +4,7 @@
 !.env.example
 *.env
 _env
+claves-temporales*.txt
 
 node_modules/
 npm-debug.log*
