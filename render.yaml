@@ -8,7 +8,9 @@ services:
     rootDir: backend
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /api/health
+    # /api/config no depende de la BD: el despliegue no se traba si Supabase está pausado.
+    # Para revisar la conexión a la BD, abre /api/health en el navegador.
+    healthCheckPath: /api/config
     autoDeploy: true
     envVars:
       - key: NODE_ENV

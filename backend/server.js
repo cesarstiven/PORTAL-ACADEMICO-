@@ -85,6 +85,7 @@ app.get('/api/health', async (req, res) => {
             time: result.rows[0].now
         });
     } catch (error) {
+        console.error('❌ /api/health: no se pudo conectar a la BD:', error.message);
         res.status(500).json({ status: 'ERROR', message: 'Error conectando a la BD', error: error.message });
     }
 });
