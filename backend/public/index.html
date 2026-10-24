@@ -88,6 +88,8 @@
         }
         .barra .btn-menu { display: none; }
         .aviso-demo {
+            position: relative;
+            z-index: 30; /* por encima del encabezado fijo del portal */
             background: var(--amarillo);
             color: var(--tinta);
             font-size: 0.875rem;
@@ -113,6 +115,8 @@
             white-space: nowrap;
             text-decoration: none;
             transition: background-color 150ms ease, border-color 150ms ease, transform 160ms var(--ease-out);
+            position: relative;
+            overflow: hidden;
         }
         .btn:active:not([disabled]) { transform: scale(0.97); }
         .btn[disabled] { opacity: 0.6; cursor: progress; }
@@ -126,7 +130,7 @@
             .btn-secondary:hover:not([disabled]) { background: var(--azul-tinte); border-color: #a9b8d8; }
             .btn-ghost:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.7); }
             .nav-btn:hover:not(.active), .nav-grupo:hover { background: var(--fondo); color: var(--tinta); }
-            table.data-table tbody tr:hover td { background: #fafbfc; }
+            table.data-table tbody tr:hover td { background: var(--fondo); }
         }
 
         .campo { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; min-width: 0; }
@@ -425,12 +429,40 @@
         .login-pie strong { color: #fff; font-weight: 600; }
         .login-pie a { color: #fff; }
 
-        /* --- Panel principal --- */
-        .app-container { display: none; flex-direction: column; min-height: 100vh; }
+        /* --- Panel principal: tema claro con tarjetas flotantes y movimiento --- */
+        .app-container {
+            --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+            --sombra-tarjeta: 0 1px 2px rgba(20, 41, 95, 0.06), 0 16px 40px -20px rgba(20, 41, 95, 0.22);
+            display: none;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        /* Encabezado fijo con la franja de colores convertida en barra luminosa */
+        .cabecera { position: sticky; top: 0; z-index: 20; animation: bajar 600ms var(--ease-out) both; }
+        @keyframes bajar { from { opacity: 0; transform: translateY(-12px); } }
+        .cabecera .franja { position: relative; height: 2px; }
+        .cabecera .franja::after { content: ''; position: absolute; inset: 0; background: inherit; filter: blur(6px); opacity: 0.9; }
         .usuario { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.9375rem; }
         .usuario strong { font-weight: 600; }
+        .txt-corto { display: none; }
+        .avatar {
+            width: 36px;
+            height: 36px;
+            flex: none;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2f5bd6, var(--azul-oscuro));
+            box-shadow: 0 0 0 2px var(--azul-oscuro), 0 0 0 3.5px var(--amarillo), 0 0 16px rgba(242, 194, 0, 0.35);
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
         .role-badge {
-            background: rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.14);
             color: #fff;
             padding: 2px 10px;
             border-radius: 999px;
@@ -438,18 +470,29 @@
             font-weight: 600;
         }
 
-        .main-layout { display: flex; flex: 1; }
+        .main-layout { display: flex; flex: 1; gap: 24px; width: 100%; max-width: 1480px; margin: 0 auto; padding: 24px clamp(16px, 3vw, 40px) 48px; }
         nav.sidebar {
-            width: 264px;
+            position: sticky;
+            top: 92px;
+            align-self: flex-start;
+            width: 272px;
+            max-height: calc(100vh - 116px);
+            overflow-y: auto;
             flex: none;
             background: var(--superficie);
-            border-right: 1px solid var(--linea);
-            padding: 16px 12px;
+            border: 1px solid var(--linea);
+            border-radius: 20px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 2px;
+            box-shadow: var(--sombra-tarjeta);
+            animation: deslizar 700ms var(--ease-out) 80ms both;
         }
+        @keyframes deslizar { from { opacity: 0; transform: translateX(-16px); } }
         .nav-btn, .nav-grupo {
+            position: relative;
+            z-index: 1;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -458,36 +501,113 @@
             text-align: left;
             background: none;
             border: none;
-            border-radius: var(--radio-control);
+            border-radius: 12px;
             font: inherit;
             font-size: 0.9375rem;
             font-weight: 600;
             color: var(--tinta-2);
             cursor: pointer;
-            transition: background-color 150ms ease, color 150ms ease;
+            transition: background-color 200ms ease, color 200ms ease;
         }
-        .nav-btn.active { background: var(--azul-tinte); color: var(--azul); }
-        .nav-grupo.contiene-activo { color: var(--azul); }
-        .nav-grupo .chevron { margin-left: auto; width: 16px; height: 16px; transform: rotate(-90deg); transition: transform 150ms var(--ease-out); }
+        nav.sidebar > .nav-btn, nav.sidebar > .nav-grupo { animation: subir-suave 500ms var(--ease-out) both; }
+        nav.sidebar > :nth-child(2) { animation-delay: 160ms; }
+        nav.sidebar > :nth-child(3) { animation-delay: 200ms; }
+        nav.sidebar > :nth-child(5) { animation-delay: 240ms; }
+        nav.sidebar > :nth-child(7) { animation-delay: 280ms; }
+        nav.sidebar > :nth-child(9) { animation-delay: 320ms; }
+        .nav-btn.active, .nav-grupo.contiene-activo { color: var(--azul); }
+        .nav-btn.active .icono, .nav-grupo.contiene-activo .icono:not(.chevron) { color: var(--azul); }
+        .nav-grupo .chevron { margin-left: auto; width: 16px; height: 16px; transform: rotate(-90deg); transition: transform 250ms var(--ease-out); }
         .nav-grupo[aria-expanded="true"] .chevron { transform: rotate(0deg); }
         .nav-sub { display: none; flex-direction: column; gap: 2px; padding: 2px 0 8px 28px; }
         .nav-grupo[aria-expanded="true"] + .nav-sub { display: flex; }
+        .nav-grupo[aria-expanded="true"] + .nav-sub > * { animation: subir-suave 300ms var(--ease-out) both; }
+        .nav-grupo[aria-expanded="true"] + .nav-sub > :nth-child(2) { animation-delay: 40ms; }
+        .nav-grupo[aria-expanded="true"] + .nav-sub > :nth-child(3) { animation-delay: 80ms; }
         .nav-sub .nav-btn { font-weight: 400; padding: 8px 12px; }
         .nav-sub .nav-btn.active { font-weight: 600; }
+        /* Píldora que se desliza hasta la opción activa (la mueve moverIndicador con transform) */
+        .nav-indicador {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 12px;
+            background: linear-gradient(90deg, rgba(29, 58, 138, 0.13), rgba(29, 58, 138, 0.04));
+            box-shadow: inset 0 0 0 1px rgba(29, 58, 138, 0.1);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 500ms var(--ease-spring), width 300ms var(--ease-out), height 300ms var(--ease-out), opacity 200ms ease;
+        }
+        .nav-indicador::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 3px;
+            background: linear-gradient(180deg, var(--amarillo), #5b7fe6);
+            box-shadow: 0 0 12px 1px rgba(242, 194, 0, 0.6);
+        }
 
-        main.content { flex: 1; min-width: 0; padding: 32px; }
+        main.content { flex: 1; min-width: 0; }
         .section-view {
             display: none;
+            position: relative;
+            max-width: 1120px;
+            padding: clamp(20px, 3vw, 36px);
             background: var(--superficie);
             border: 1px solid var(--linea);
-            border-radius: var(--radio);
-            padding: 28px;
-            max-width: 1080px;
+            border-radius: 24px;
+            box-shadow: var(--sombra-tarjeta);
+        }
+        /* Línea de luz en el borde superior de cada panel */
+        .section-view::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 32px;
+            right: 32px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(29, 58, 138, 0.5), rgba(242, 194, 0, 0.8), transparent);
         }
         .section-view.active { display: block; }
-        .section-view h2 { font-size: 1.5rem; font-weight: 700; color: var(--tinta); }
+        .section-view h2 {
+            font-family: 'Plus Jakarta Sans', 'Source Sans 3', system-ui, sans-serif;
+            font-size: clamp(1.5rem, 2.2vw, 1.875rem);
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--azul-oscuro);
+        }
         .section-view h3 { font-size: 1.125rem; font-weight: 600; color: var(--tinta); }
         .section-subtitle { color: var(--tinta-3); font-size: 0.9375rem; margin: 6px 0 24px; max-width: 70ch; }
+
+        /* Entrada escalonada de cada sección (la clase .entrando la pone mostrarSeccion) */
+        .section-view.entrando { animation: aparecer-panel 500ms var(--ease-out) both; }
+        @keyframes aparecer-panel { from { opacity: 0; transform: translateY(10px) scale(0.995); } }
+        .section-view.entrando > *, .section-view.entrando .ficha > * { animation: subir-suave 600ms var(--ease-out) both; }
+        @keyframes subir-suave { from { opacity: 0; transform: translateY(14px); } }
+        .section-view.entrando > :nth-child(2) { animation-delay: 60ms; }
+        .section-view.entrando > :nth-child(3) { animation-delay: 120ms; }
+        .section-view.entrando > :nth-child(n+4) { animation-delay: 180ms; }
+        .section-view.entrando .ficha > :nth-child(1) { animation-delay: 140ms; }
+        .section-view.entrando .ficha > :nth-child(2) { animation-delay: 210ms; }
+        .section-view.entrando .ficha > :nth-child(3) { animation-delay: 280ms; }
+        .section-view.entrando .ficha > :nth-child(n+4) { animation-delay: 350ms; }
+
+        /* Brillo suave que sigue al cursor dentro de paneles y tarjetas (--mx/--my los pone el JS) */
+        .section-view:not(.tablero)::after, .tablero .ficha-fila::after, .bienvenida::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: radial-gradient(420px circle at var(--mx, 50%) var(--my, -200px), rgba(29, 58, 138, 0.05), transparent 60%);
+            opacity: 0;
+            transition: opacity 300ms ease;
+            pointer-events: none;
+        }
+        .section-view:not(.tablero):hover::after, .tablero .ficha-fila:hover::after, .bienvenida:hover::after { opacity: 1; }
+
         .bloque { padding: 24px 0; border-top: 1px solid var(--linea); }
         .bloque:first-of-type { border-top: none; padding-top: 0; }
         .bloque h3 { margin-bottom: 4px; }
@@ -506,7 +626,82 @@
         .lista-cursos li { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--linea); }
         .lista-cursos li:last-child { border-bottom: none; padding-bottom: 0; }
         .lista-cursos small { color: var(--tinta-3); white-space: nowrap; font-size: 0.875rem; }
-        .accesos { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        /* Inicio como tablero: bienvenida destacada y cada bloque en su propia tarjeta */
+        .section-view.tablero { background: none; border: none; box-shadow: none; padding: 0; }
+        .section-view.tablero::before { display: none; }
+        .bienvenida {
+            position: relative;
+            overflow: hidden;
+            padding: clamp(24px, 4vw, 40px);
+            border-radius: 24px;
+            background: linear-gradient(135deg, #2a50b4 0%, var(--azul) 45%, var(--azul-oscuro) 100%);
+            color: #fff;
+            box-shadow: 0 24px 48px -24px rgba(29, 58, 138, 0.55);
+        }
+        /* Halo dorado decorativo */
+        .bienvenida::before {
+            content: '';
+            position: absolute;
+            right: -80px;
+            top: -120px;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(242, 194, 0, 0.28), transparent 65%);
+            pointer-events: none;
+        }
+        .bienvenida h2 { color: #fff; }
+        .bienvenida .section-subtitle { color: #dbe3f5; margin-bottom: 0; }
+        .tablero .ficha { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+        .tablero .ficha-fila, .tablero .ficha-fila:first-child {
+            position: relative;
+            display: block;
+            padding: 24px;
+            border: 1px solid var(--linea);
+            border-radius: 20px;
+            background: var(--superficie);
+            box-shadow: var(--sombra-tarjeta);
+        }
+        .tablero .ficha-fila:first-child { grid-column: 1 / -1; }
+        .tablero .ficha-fila > h3 { margin-bottom: 16px; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tinta-3); }
+
+        /* Accesos rápidos: tiles con inclinación 3D (--rx/--ry los pone el JS) */
+        .accesos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .acceso {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1px solid var(--linea);
+            border-radius: 16px;
+            background: #f7f9fc;
+            color: var(--tinta);
+            font: inherit;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            transform: perspective(600px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+            transition: transform 400ms var(--ease-out), border-color 200ms ease, background-color 200ms ease, box-shadow 300ms ease;
+        }
+        .acceso-icono {
+            width: 40px;
+            height: 40px;
+            flex: none;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            background: var(--azul-tinte);
+            color: var(--azul);
+        }
+        .acceso .flecha { margin-left: auto; color: var(--tinta-3); transition: transform 300ms var(--ease-spring), color 200ms ease; }
+        .acceso:active { transform: perspective(600px) scale(0.98); }
+        @media (hover: hover) and (pointer: fine) {
+            .acceso:hover { border-color: rgba(29, 58, 138, 0.3); background: #fff; box-shadow: 0 16px 32px -16px rgba(29, 58, 138, 0.45); }
+            .acceso:hover .flecha { color: var(--azul); transform: translateX(3px); }
+        }
 
         .form-clave { display: flex; flex-direction: column; gap: 16px; max-width: 360px; }
         .form-clave .campo { flex: none; }
@@ -519,8 +714,10 @@
             align-items: center;
             gap: 16px;
             flex-wrap: wrap;
-            padding-bottom: 24px;
-            border-bottom: 1px solid var(--linea);
+            padding: 20px 24px;
+            border: 1px solid #d6def0;
+            border-radius: 18px;
+            background: linear-gradient(135deg, var(--azul-tinte), #fff);
         }
         .texto-sec { color: var(--tinta-3); font-size: 0.9375rem; margin-top: 2px; }
         .periodo-titulo { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
@@ -528,48 +725,80 @@
         .periodo-titulo small { color: var(--tinta-3); font-size: 0.875rem; }
         .periodo-titulo + .table-wrap { margin-top: 12px; }
 
+        /* Botones y campos del portal */
+        .app-container .btn-primary {
+            background: linear-gradient(135deg, #2a50b4, var(--azul) 60%, var(--azul-oscuro));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 8px 18px -8px rgba(29, 58, 138, 0.6);
+            transition: transform 160ms var(--ease-out), box-shadow 300ms var(--ease-out);
+        }
+        .app-container .btn-primary[aria-busy="true"] { animation: pulso 1.2s ease-out infinite; }
+        @media (hover: hover) and (pointer: fine) {
+            .app-container .btn-primary:hover:not([disabled]) { background: linear-gradient(135deg, #2448a8, var(--azul-hover) 60%, #102250); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 24px -8px rgba(29, 58, 138, 0.7); }
+        }
+        .app-container input, .app-container select { min-height: 44px; border-radius: 12px; }
+        .app-container input:focus-visible, .app-container select:focus-visible { box-shadow: 0 0 0 4px rgba(29, 58, 138, 0.14), 0 0 20px -4px rgba(29, 58, 138, 0.35); }
+
+        /* Onda expansiva al presionar (la crea el JS en .btn y .acceso) */
+        .onda { position: absolute; border-radius: 50%; background: currentColor; pointer-events: none; }
+
         /* --- Tablas --- */
-        .table-wrap { margin-top: 20px; border: 1px solid var(--linea); border-radius: 10px; overflow-x: auto; }
+        .table-wrap { margin-top: 20px; border: 1px solid var(--linea); border-radius: 16px; overflow-x: auto; background: var(--superficie); }
         table.data-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; font-variant-numeric: tabular-nums; }
-        table.data-table th, table.data-table td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--linea); vertical-align: middle; }
+        table.data-table th, table.data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--linea); vertical-align: middle; }
+        table.data-table td { transition: background-color 150ms ease; }
         table.data-table tbody tr:last-child td { border-bottom: none; }
-        table.data-table th { background: var(--cabecera-tabla); color: var(--tinta-2); font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
+        table.data-table th { background: var(--cabecera-tabla); color: var(--tinta-3); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
         table.data-table .num { text-align: right; white-space: nowrap; }
-        table.data-table td.vacio { color: var(--tinta-3); text-align: center; padding: 28px 14px; }
+        table.data-table td.vacio { color: var(--tinta-3); text-align: center; padding: 32px 16px; }
+        /* Filas en cascada cada vez que se pintan */
+        table.data-table tbody tr { animation: subir-suave 450ms var(--ease-out) both; }
+        table.data-table tbody tr:nth-child(2) { animation-delay: 30ms; }
+        table.data-table tbody tr:nth-child(3) { animation-delay: 60ms; }
+        table.data-table tbody tr:nth-child(4) { animation-delay: 90ms; }
+        table.data-table tbody tr:nth-child(5) { animation-delay: 120ms; }
+        table.data-table tbody tr:nth-child(n+6) { animation-delay: 150ms; }
 
         .badge-status {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             padding: 2px 10px;
             border-radius: 999px;
             font-size: 0.8125rem;
             font-weight: 600;
             white-space: nowrap;
         }
+        /* Punto luminoso del color del estado */
+        .badge-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
         .status-paid { background: var(--ok-fondo); color: var(--ok-tinta); }
         .status-pending { background: var(--aviso-fondo); color: var(--aviso-tinta); }
         .status-failed { background: var(--error-fondo); color: var(--error-tinta); }
         .status-none { background: var(--fondo); color: var(--tinta-3); }
 
-        /* --- Aviso flotante: único movimiento autoral del portal --- */
+        /* --- Aviso flotante: vidrio oscuro con barra luminosa del color del resultado --- */
         .toast {
             position: fixed;
             right: 24px;
             bottom: 24px;
             z-index: 50;
             max-width: min(420px, calc(100vw - 32px));
-            padding: 12px 16px;
-            border-radius: 10px;
+            padding: 14px 18px 14px 22px;
+            border: 1px solid var(--linea);
+            border-radius: 14px;
+            background: #fff;
+            color: var(--tinta);
             font-size: 0.9375rem;
             font-weight: 600;
-            box-shadow: 0 10px 28px rgba(20, 41, 95, 0.14), 0 2px 6px rgba(20, 41, 95, 0.08);
+            box-shadow: 0 20px 40px -12px rgba(20, 41, 95, 0.3);
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(12px) scale(0.98);
             pointer-events: none;
             transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
         }
-        .toast.visible { opacity: 1; transform: translateY(0); pointer-events: auto; transition-duration: 220ms; }
-        .toast.ok { background: var(--ok-fondo); color: var(--ok-tinta); }
-        .toast.error { background: var(--error-fondo); color: var(--error-tinta); }
+        .toast::before { content: ''; position: absolute; left: 8px; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; }
+        .toast.visible { opacity: 1; transform: none; pointer-events: auto; transition-duration: 300ms; }
+        .toast.ok::before { background: #22a355; box-shadow: 0 0 10px rgba(34, 163, 85, 0.7); }
+        .toast.error::before { background: var(--rojo); box-shadow: 0 0 10px rgba(213, 43, 30, 0.6); }
 
         @media (prefers-reduced-motion: reduce) {
             .toast, .toast.visible { transform: none; }
@@ -578,6 +807,10 @@
             .login-screen .anim, .login-card, .login-card.sacudir, .login-fondo img, .btn-login[aria-busy="true"], .btn-login.exito .btn-exito { animation: none; }
             .flot, .flot:focus-within, .flot > .icono, .flot label, .btn-login, .btn-login::after { transition: none; }
             .flot:focus-within { transform: none; }
+            .cabecera, nav.sidebar, nav.sidebar > *, .nav-sub > *, .section-view.entrando, .section-view.entrando > *, .section-view.entrando .ficha > *,
+            table.data-table tbody tr, .app-container .btn-primary[aria-busy="true"] { animation: none !important; }
+            .nav-indicador, .acceso, .acceso .flecha, .toast { transition: none; }
+            .acceso { transform: none; }
         }
 
         /* Login en tableta y celular: la marca queda arriba, compacta, y la tarjeta ocupa el ancho */
@@ -600,14 +833,15 @@
             .marca > span:not(.logo-mini) { display: none; }
             .logo-mini { width: 34px; height: 34px; background-size: 52px auto; background-position: -9px 3px; }
             .usuario { flex-wrap: nowrap; gap: 8px; }
-            .usuario > span:first-child { display: none; }
+            .usuario .saludo-wrap, .usuario .role-badge, .txt-largo { display: none; }
+            .txt-corto { display: inline; }
             .barra .btn-menu { display: inline-flex; }
-            .main-layout { flex-direction: column; }
+            .main-layout { flex-direction: column; gap: 16px; padding: 16px 16px 32px; }
             /* El menú se abre como panel debajo del encabezado */
-            nav.sidebar { display: none; width: auto; border-right: none; border-bottom: 1px solid var(--linea); }
+            nav.sidebar { display: none; position: relative; top: auto; width: auto; max-height: none; align-self: stretch; }
             nav.sidebar.abierto { display: flex; }
-            main.content { padding: 16px; }
-            .section-view { padding: 20px 16px; }
+            .section-view { padding: 20px 16px; border-radius: 20px; }
+            .tablero .ficha { grid-template-columns: 1fr; }
             .ficha-fila { grid-template-columns: 1fr; }
             .toast { left: 16px; right: 16px; bottom: 16px; max-width: none; }
             .form-row > .btn { width: 100%; }
@@ -672,6 +906,7 @@
 
 <!-- APP -->
 <div id="app-screen" class="app-container">
+    <div class="cabecera">
     <header class="barra">
         <div class="barra-izq">
             <button class="btn btn-ghost btn-menu" id="btn-menu" aria-controls="sidebar" aria-expanded="false" onclick="alternarMenu()">Menú</button>
@@ -680,21 +915,25 @@
             </a>
         </div>
         <div class="usuario">
-            <span><span class="saludo">Hola, </span><strong id="user-display"></strong></span>
+            <span class="avatar" id="user-avatar" aria-hidden="true"></span>
+            <span class="saludo-wrap"><span class="saludo">Hola, </span><strong id="user-display"></strong></span>
             <span id="role-display" class="role-badge"></span>
-            <button onclick="logout()" class="btn btn-ghost">Cerrar sesión</button>
+            <button onclick="logout()" class="btn btn-ghost" aria-label="Cerrar sesión"><span class="txt-largo">Cerrar sesión</span><span class="txt-corto">Salir</span></button>
         </div>
     </header>
     <div class="franja"></div>
+    </div>
 
     <div class="main-layout">
         <nav class="sidebar" id="sidebar" aria-label="Menú principal"></nav>
 
         <main class="content">
             <!-- Inicio -->
-            <div id="sec-inicio" class="section-view active">
-                <h2 id="inicio-titulo">Te damos la bienvenida al Portal Académico</h2>
-                <p class="section-subtitle">Seleccione una opción del menú para gestionar sus trámites en CEPDECO.</p>
+            <div id="sec-inicio" class="section-view tablero active">
+                <div class="bienvenida">
+                    <h2 id="inicio-titulo">Te damos la bienvenida al Portal Académico</h2>
+                    <p class="section-subtitle">Seleccione una opción del menú para gestionar sus trámites en CEPDECO.</p>
+                </div>
                 <div class="ficha">
                     <section class="ficha-fila">
                         <h3>Accesos rápidos</h3>
@@ -1072,7 +1311,8 @@ const ICONOS = {
     financiera: icono('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>'),
     tramites: icono('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="m9 15 2 2 4-4"/>'),
     admin: icono('<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>'),
-    chevron: icono('<path d="m6 9 6 6 6-6"/>', 'icono chevron')
+    chevron: icono('<path d="m6 9 6 6 6-6"/>', 'icono chevron'),
+    flecha: icono('<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>', 'icono flecha')
 };
 
 const DATOS_PERSONALES = { grupo: 'Datos personales', icono: 'persona', items: [['datos', 'Mis datos personales'], ['clave', 'Mi contraseña']] };
@@ -1096,11 +1336,11 @@ const MENU = {
         { grupo: 'Administración', icono: 'admin', items: [['adm-usuarios', 'Usuarios'], ['adm-pagos', 'Pagos manuales']] }
     ]
 };
-// Atajos que aparecen en el Inicio de cada rol
+// Atajos que aparecen en el Inicio de cada rol: [sección, texto, ícono]
 const ACCESOS = {
-    Estudiante: [['notas', 'Mis calificaciones'], ['certificados', 'Generar certificado'], ['pagos', 'Pagar en línea']],
-    Docente: [['docente', 'Registrar notas'], ['datos', 'Mis datos']],
-    Administrador: [['adm-matriculas', 'Matricular estudiante'], ['adm-usuarios', 'Crear usuario'], ['docente', 'Registrar notas']]
+    Estudiante: [['notas', 'Mis calificaciones', 'academica'], ['certificados', 'Generar certificado', 'tramites'], ['pagos', 'Pagar en línea', 'financiera']],
+    Docente: [['docente', 'Registrar notas', 'academica'], ['datos', 'Mis datos', 'persona']],
+    Administrador: [['adm-matriculas', 'Matricular estudiante', 'academica'], ['adm-usuarios', 'Crear usuario', 'admin'], ['docente', 'Registrar notas', 'academica']]
 };
 
 function botonNav(key, label, conIcono) {
@@ -1114,14 +1354,17 @@ function botonNav(key, label, conIcono) {
 
 function construirMenu(menu) {
     const nav = $('sidebar');
-    nav.innerHTML = '';
+    nav.innerHTML = '<span class="nav-indicador" aria-hidden="true"></span>';
     menu.forEach((m) => {
         if (!m.grupo) return nav.appendChild(botonNav(m.key, m.label, true));
         const g = document.createElement('button');
         g.className = 'nav-grupo';
         g.setAttribute('aria-expanded', 'false');
         g.innerHTML = `${ICONOS[m.icono]}<span>${esc(m.grupo)}</span>${ICONOS.chevron}`;
-        g.onclick = () => g.setAttribute('aria-expanded', g.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
+        g.onclick = () => {
+            g.setAttribute('aria-expanded', g.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
+            moverIndicador();
+        };
         const sub = document.createElement('div');
         sub.className = 'nav-sub';
         m.items.forEach(([key, label]) => sub.appendChild(botonNav(key, label, false)));
@@ -1133,10 +1376,51 @@ function alternarMenu(abrir) {
     const abierto = abrir ?? !$('sidebar').classList.contains('abierto');
     $('sidebar').classList.toggle('abierto', abierto);
     $('btn-menu').setAttribute('aria-expanded', String(abierto));
+    moverIndicador();
+}
+
+// Desliza la píldora luminosa del menú hasta la opción activa (o hasta su grupo si está cerrado)
+function moverIndicador() {
+    const ind = document.querySelector('.nav-indicador');
+    if (!ind) return;
+    const activo = document.querySelector('.nav-btn.active');
+    const grupo = activo && activo.closest('.nav-sub') && activo.closest('.nav-sub').previousElementSibling;
+    const destino = grupo && grupo.getAttribute('aria-expanded') !== 'true' ? grupo : activo;
+    if (!destino || !destino.offsetParent) { ind.style.opacity = '0'; return; }
+    const primera = !ind.style.transform;
+    if (primera) ind.style.transition = 'none';
+    ind.style.width = destino.offsetWidth + 'px';
+    ind.style.height = destino.offsetHeight + 'px';
+    ind.style.transform = `translate(${destino.offsetLeft}px, ${destino.offsetTop}px)`;
+    ind.style.opacity = '1';
+    if (primera) { void ind.offsetWidth; ind.style.transition = ''; }
+}
+addEventListener('resize', moverIndicador);
+
+const movimientoReducido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Cambio de sección: la actual sale rápido (140 ms) y la nueva entra escalonada (clase .entrando)
+let turnoSeccion = 0;
+async function mostrarSeccion(sec) {
+    const actual = document.querySelector('.section-view.active');
+    const turno = ++turnoSeccion;
+    if (actual && actual !== sec && !movimientoReducido()) {
+        await actual.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }],
+            { duration: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }).finished.catch(() => {});
+        if (turno !== turnoSeccion) return; // otro clic llegó mientras salía
+    }
+    document.querySelectorAll('.section-view').forEach((s) => {
+        s.getAnimations().forEach((a) => a.cancel());
+        s.classList.remove('active', 'entrando');
+    });
+    void sec.offsetWidth; // reinicia la entrada si es la misma sección
+    sec.classList.add('active', 'entrando');
+    if (actual !== sec) scrollTo({ top: 0 });
 }
 
 function entrar() {
     $('user-display').textContent = user.nombre;
+    $('user-avatar').textContent = user.nombre.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
     $('role-display').textContent = user.rol;
     $('login-screen').style.display = 'none';
     $('app-screen').style.display = 'flex';
@@ -1146,7 +1430,7 @@ function entrar() {
         ? '<span class="aviso-clave">Tu cuenta tiene una contraseña temporal. Cámbiala para continuar.</span>'
         : 'Usa al menos 8 caracteres. Evita fechas, cédulas o el nombre de usuario.';
     $('inicio-accesos').innerHTML = (ACCESOS[user.rol] || [])
-        .map(([key, label]) => `<button class="btn btn-secondary btn-sm" onclick="irA('${key}')">${esc(label)}</button>`).join('');
+        .map(([key, label, ico]) => `<button class="acceso" onclick="irA('${key}')"><span class="acceso-icono">${ICONOS[ico]}</span><span>${esc(label)}</span>${ICONOS.flecha}</button>`).join('');
     irA(user.cambiarClave ? 'clave' : 'inicio');
     if (refPayco && user.rol === 'Estudiante' && !user.cambiarClave) confirmarPago();
 }
@@ -1160,16 +1444,16 @@ const LOADERS = {
 function irA(name) {
     const btn = document.querySelector(`.nav-btn[data-key="${name}"]`);
     if (!btn) return;
-    document.querySelectorAll('.section-view').forEach((s) => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach((b) => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
     document.querySelectorAll('.nav-grupo').forEach((g) => g.classList.remove('contiene-activo'));
-    $('sec-' + name).classList.add('active');
+    mostrarSeccion($('sec-' + name));
     btn.classList.add('active');
     btn.setAttribute('aria-current', 'page');
     // Abre el grupo que contiene la opción activa
     const sub = btn.closest('.nav-sub');
     if (sub) { sub.previousElementSibling.setAttribute('aria-expanded', 'true'); sub.previousElementSibling.classList.add('contiene-activo'); }
     alternarMenu(false);
+    moverIndicador();
     if (LOADERS[name]) LOADERS[name]().catch((e) => msg(e.message, false));
 }
 
@@ -1419,6 +1703,42 @@ $('clave-form').addEventListener('submit', (e) => {
         } catch (ex) { msg(ex.message, false); }
     });
 });
+
+// ---- Microinteracciones del portal ----
+// Onda expansiva desde el punto donde se presiona
+document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.btn, .acceso');
+    if (!b || b.disabled || movimientoReducido()) return;
+    const r = b.getBoundingClientRect();
+    const d = Math.max(r.width, r.height) * 2;
+    const onda = document.createElement('span');
+    onda.className = 'onda';
+    onda.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+    b.appendChild(onda);
+    onda.animate([{ transform: 'scale(0)', opacity: 0.3 }, { transform: 'scale(1)', opacity: 0 }],
+        { duration: 650, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' }).finished.then(() => onda.remove());
+});
+
+// Brillo que sigue al cursor en paneles y tarjetas; los accesos además se inclinan (solo con mouse)
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    const SUPERFICIES = '.acceso, .bienvenida, .tablero .ficha-fila, .section-view:not(.tablero)';
+    let anterior = null;
+    const enderezar = () => { if (anterior) { anterior.style.removeProperty('--rx'); anterior.style.removeProperty('--ry'); } };
+    $('app-screen').addEventListener('pointermove', (e) => {
+        const el = e.target.closest(SUPERFICIES);
+        if (el !== anterior) { enderezar(); anterior = el; }
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left, y = e.clientY - r.top;
+        el.style.setProperty('--mx', x + 'px');
+        el.style.setProperty('--my', y + 'px');
+        if (el.classList.contains('acceso') && !movimientoReducido()) {
+            el.style.setProperty('--ry', ((x / r.width - 0.5) * 10).toFixed(2) + 'deg');
+            el.style.setProperty('--rx', ((0.5 - y / r.height) * 10).toFixed(2) + 'deg');
+        }
+    });
+    $('app-screen').addEventListener('pointerleave', () => { enderezar(); anterior = null; });
+}
 
 // Restaurar sesión si ya había token
 if (token && user) entrar();
