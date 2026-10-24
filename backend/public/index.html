@@ -87,6 +87,14 @@
             background: linear-gradient(90deg, var(--amarillo) 0 50%, var(--azul) 50% 75%, var(--rojo) 75% 100%);
         }
         .barra .btn-menu { display: none; }
+        .aviso-demo {
+            background: var(--amarillo);
+            color: var(--tinta);
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-align: center;
+            padding: 6px 16px;
+        }
 
         /* --- Botones y campos --- */
         .btn {
@@ -135,40 +143,101 @@
             color: var(--tinta);
             font: inherit;
             font-size: 0.9375rem;
-            transition: border-color 150ms ease;
+            transition: border-color 150ms ease, box-shadow 150ms ease;
         }
         input::placeholder { color: var(--tinta-3); }
-        input:focus-visible, select:focus-visible { outline: 2px solid var(--azul); outline-offset: 0; border-color: var(--azul); }
+        input:focus-visible, select:focus-visible { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(29, 58, 138, 0.28); }
+
+        /* Estado cargando de cualquier botón (lo pone conCarga con aria-busy) */
+        .btn[aria-busy="true"]::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            animation: girar 700ms linear infinite;
+        }
+        @keyframes girar { to { transform: rotate(360deg); } }
         .form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 
         /* --- Login --- */
-        .login-screen { display: flex; flex-direction: column; min-height: 100vh; }
-        .login-main { flex: 1; display: flex; justify-content: center; align-items: center; padding: 32px 16px; }
-        .login-card {
-            background: var(--superficie);
-            border: 1px solid var(--linea);
-            border-radius: var(--radio);
-            padding: 32px;
-            width: 100%;
-            max-width: 400px;
+        /* Pantalla dividida: foto de Codazzi a la izquierda, formulario sobre blanco a la derecha */
+        .login-screen { display: flex; flex-direction: column; min-height: 100vh; background: var(--superficie); }
+        .login-split { flex: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(400px, 1fr); }
+        .login-foto { position: relative; overflow: hidden; background: var(--azul-oscuro); color: #fff; }
+        .login-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 45%; }
+        /* Capa: deja ver el cielo arriba y oscurece abajo para que el texto blanco siempre se lea */
+        .login-foto::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(20, 41, 95, 0.10) 0%, rgba(20, 41, 95, 0.35) 50%, rgba(12, 25, 60, 0.92) 100%);
         }
-        .login-logo { display: block; width: 168px; height: auto; margin: 0 auto 20px; }
-        .login-card h1 { font-size: 1.5rem; font-weight: 700; color: var(--azul-oscuro); text-align: center; }
-        .login-card .login-sub { color: var(--tinta-3); margin: 4px 0 24px; text-align: center; }
-        .login-card .campo { margin-bottom: 16px; }
+        .login-marca { position: absolute; z-index: 1; left: 48px; right: 48px; bottom: 76px; }
+        .login-marca strong { display: block; font-size: 2.75rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1.1; }
+        .login-marca .sub { display: block; font-size: 1.25rem; font-weight: 600; margin-top: 4px; }
+        .login-marca .lema { display: block; font-size: 1.0625rem; color: #dbe3f5; margin-top: 12px; max-width: 36ch; }
+        .login-lugar { position: absolute; z-index: 1; left: 48px; bottom: 28px; display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #c9d3ea; }
+        .login-lugar .icono { width: 16px; height: 16px; }
+
+        .login-panel { display: flex; flex-direction: column; }
+        .login-form-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            max-width: 380px;
+            margin: 0 auto;
+            padding: 48px 24px;
+            animation: aparecer 260ms var(--ease-out) both;
+        }
+        /* Entrada sutil: el formulario siempre es visible, solo sube 8px (si la animación no corre, no queda oculto) */
+        @keyframes aparecer { from { transform: translateY(8px); } }
+        .login-logo { display: block; width: 112px; height: auto; margin-bottom: 28px; }
+        .login-form-wrap h1 { font-size: 1.75rem; font-weight: 700; color: var(--azul-oscuro); }
+        .login-sub { color: var(--tinta-3); margin: 4px 0 28px; }
+        .login-form-wrap .campo { margin-bottom: 18px; }
+        .login-form-wrap .btn-block { min-height: 46px; margin-top: 6px; font-size: 1rem; }
         .login-error { color: var(--error-tinta); font-size: 0.9375rem; margin-top: 12px; display: none; }
-        .pie {
-            background: var(--azul-oscuro);
-            color: #c9d3ea;
-            font-size: 0.875rem;
-            padding: 16px 32px;
+
+        /* Campos con ícono interno y botón para ver la contraseña */
+        .input-icono { position: relative; }
+        .input-icono > .icono { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tinta-3); pointer-events: none; transition: color 150ms ease; }
+        .input-icono:focus-within > .icono { color: var(--azul); }
+        .input-icono input { min-height: 46px; padding-left: 40px; }
+        .input-icono input.con-boton { padding-right: 48px; }
+        .ver-clave {
+            position: absolute;
+            right: 4px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border: none;
+            border-radius: 6px;
+            background: none;
+            color: var(--tinta-3);
+            cursor: pointer;
+            transition: color 150ms ease, background-color 150ms ease;
+        }
+        .ver-clave:focus-visible { outline: 2px solid var(--azul); outline-offset: 0; }
+        @media (hover: hover) and (pointer: fine) { .ver-clave:hover { color: var(--azul); background: var(--azul-tinte); } }
+
+        .login-pie {
+            border-top: 1px solid var(--linea);
+            color: var(--tinta-3);
+            font-size: 0.8125rem;
+            padding: 18px 32px;
             display: flex;
             justify-content: space-between;
-            gap: 8px 32px;
+            gap: 8px 24px;
             flex-wrap: wrap;
         }
-        .pie strong { color: #fff; font-weight: 600; }
-        .pie a { color: #fff; }
+        .login-pie strong { color: var(--tinta-2); font-weight: 600; }
 
         /* --- Panel principal --- */
         .app-container { display: none; flex-direction: column; min-height: 100vh; }
@@ -320,6 +389,21 @@
             .toast, .toast.visible { transform: none; }
             .btn:active:not([disabled]) { transform: none; }
             .nav-grupo .chevron { transition: none; }
+            .login-form-wrap { animation: none; }
+        }
+
+        /* Login en tableta y celular: la foto pasa a ser una franja arriba */
+        @media (max-width: 900px) {
+            .login-split { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .login-foto { min-height: 240px; }
+            .login-marca { left: 20px; right: 20px; bottom: 48px; }
+            .login-marca strong { font-size: 2rem; }
+            .login-marca .sub { font-size: 1.0625rem; }
+            .login-marca .lema { display: none; }
+            .login-lugar { left: 20px; bottom: 16px; }
+            .login-logo { display: none; }
+            .login-form-wrap { padding: 32px 20px; }
+            .login-pie { padding: 16px 20px; }
         }
 
         /* --- Celular y tableta --- */
@@ -339,36 +423,58 @@
             .ficha-fila { grid-template-columns: 1fr; }
             .toast { left: 16px; right: 16px; bottom: 16px; max-width: none; }
             .form-row > .btn { width: 100%; }
-            .pie { padding: 16px; }
         }
     </style>
     <script src="https://checkout.epayco.co/checkout.js"></script>
 </head>
 <body>
 
+<div id="aviso-demo" class="aviso-demo" role="note" hidden>Versión de demostración: los datos son de prueba y pueden cambiar o borrarse.</div>
+
 <!-- LOGIN -->
 <div id="login-screen" class="login-screen">
-    <div class="barra"><div class="marca"><span class="logo-mini" aria-hidden="true"></span><strong>CEPDECO</strong><span>Portal académico</span></div></div>
     <div class="franja"></div>
-    <main class="login-main">
-        <div class="login-card">
-            <img class="login-logo" src="/img/logo-cepdeco.png" width="787" height="672"
-                 alt="CEPDECO: Formación para el liderazgo y emprendimiento">
-            <h1>Portal Web CEPDECO</h1>
-            <p class="login-sub">Acceso al sistema de gestión académica</p>
-            <form id="login-form">
-                <label class="campo"><span>Usuario</span>
-                    <input type="text" id="username" placeholder="Ej. ceshernandez" autocomplete="username" required>
-                </label>
-                <label class="campo"><span>Contraseña</span>
-                    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
-                </label>
-                <button type="submit" id="login-btn" class="btn btn-primary btn-block">Iniciar sesión</button>
-                <p id="login-error" class="login-error" role="alert"></p>
-            </form>
-        </div>
-    </main>
-    <footer class="pie" id="pie-login"></footer>
+    <div class="login-split">
+        <section class="login-foto">
+            <img src="/img/fondo-codazzi.jpg" width="960" height="720" alt="">
+            <div class="login-marca">
+                <strong>CEPDECO</strong>
+                <span class="sub">Portal académico</span>
+                <span class="lema">Formación para el liderazgo y emprendimiento</span>
+            </div>
+            <p class="login-lugar">
+                <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                Agustín Codazzi, Cesar
+            </p>
+        </section>
+
+        <main class="login-panel">
+            <div class="login-form-wrap">
+                <img class="login-logo" src="/img/logo-cepdeco.png" width="787" height="672"
+                     alt="CEPDECO: Formación para el liderazgo y emprendimiento">
+                <h1>Iniciar sesión</h1>
+                <p class="login-sub">Acceso al sistema de gestión académica</p>
+                <form id="login-form">
+                    <label class="campo" for="username"><span>Usuario</span>
+                        <span class="input-icono">
+                            <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                            <input type="text" id="username" placeholder="Ej. ceshernandez" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                        </span>
+                    </label>
+                    <label class="campo" for="password"><span>Contraseña</span>
+                        <span class="input-icono">
+                            <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                            <input type="password" id="password" class="con-boton" placeholder="Tu contraseña" autocomplete="current-password" required>
+                            <button type="button" class="ver-clave" id="ver-clave" aria-label="Mostrar contraseña" aria-pressed="false" onclick="verClave()"></button>
+                        </span>
+                    </label>
+                    <button type="submit" id="login-btn" class="btn btn-primary btn-block">Iniciar sesión</button>
+                    <p id="login-error" class="login-error" role="alert"></p>
+                </form>
+            </div>
+            <footer class="login-pie" id="pie-login"></footer>
+        </main>
+    </div>
 </div>
 
 <!-- APP -->
@@ -670,6 +776,8 @@ const contactoHtml = () =>
 $('pie-login').innerHTML = `<div><strong>Contacto CEPDECO</strong><br>${esc(CEPDECO.direccion)}<br>Tel. ${esc(CEPDECO.telefono)} · <a href="mailto:${CEPDECO.correo}">${esc(CEPDECO.correo)}</a></div>
     <div>Licencia de funcionamiento: Resolución 002844<br>${enlacesFacebook()}</div>`;
 
+fetch('/api/config').then((r) => r.json()).then((c) => { $('aviso-demo').hidden = !c.demo; }).catch(() => {});
+
 function msg(texto, ok = true) {
     const m = $('msg');
     m.textContent = texto;
@@ -722,7 +830,21 @@ function logout() {
     $('app-screen').style.display = 'none';
     $('login-screen').style.display = 'flex';
     $('login-form').reset();
+    verClave(false);
 }
+
+// Mostrar / ocultar la contraseña del login
+const OJO = '<svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const OJO_TACHADO = '<svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1"/><path d="M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function verClave(mostrar) {
+    const campo = $('password');
+    const ver = mostrar ?? campo.type === 'password';
+    campo.type = ver ? 'text' : 'password';
+    $('ver-clave').innerHTML = ver ? OJO_TACHADO : OJO;
+    $('ver-clave').setAttribute('aria-pressed', String(ver));
+    $('ver-clave').setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+}
+verClave(false);
 
 // ---- Menú por grupos (estilo portal de servicios académicos) ----
 const icono = (trazos, cls = 'icono') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${trazos}</svg>`;

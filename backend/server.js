@@ -20,6 +20,8 @@ const LICENCIA = 'Resolución 002844';
 const FIRMA_CERTIFICADO = { nombre: 'Edenia Ayola Ortega', cargo: 'Directora General' };
 // Admin puede marcar pagos como aprobados a mano (pruebas / pago en secretaría). Se apaga con PAGO_MANUAL=off
 const PAGO_MANUAL = process.env.PAGO_MANUAL !== 'off';
+// Aviso "Versión de demostración" en el portal. Se apaga con MODO_DEMO=off (cuando sea oficial)
+const MODO_DEMO = process.env.MODO_DEMO !== 'off';
 
 let JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -121,6 +123,9 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ success: true, user: req.user }));
+
+// Configuración pública del portal (el frontend muestra el aviso de demostración si demo = true)
+app.get('/api/config', (req, res) => res.json({ demo: MODO_DEMO }));
 
 // Información pública: cursos que ofrece CEPDECO (para el inicio y el login)
 app.get('/api/programas', async (req, res) => {

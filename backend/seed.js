@@ -3,9 +3,14 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { periodoActual } = require('./academico');
 
-const PASS = process.env.SEED_PASSWORD || 'Cepdeco2026*';
+// La clave de los usuarios demo sale del .env (el repo es público: no se deja una clave fija aquí)
+const PASS = process.env.SEED_PASSWORD;
 
 async function main() {
+    if (!PASS || PASS.length < 8) {
+        console.error('❌ Define SEED_PASSWORD (mínimo 8 caracteres) en backend/.env antes de correr seed.js');
+        process.exit(1);
+    }
     const hash = await bcrypt.hash(PASS, 10);
     const usuarios = [
         ['ceshernandez', 'Cesar Hernandez',   'cesar.hernandez@cepdeco.edu.co', 'Administrador'],
@@ -58,7 +63,7 @@ async function main() {
          ON CONFLICT DO NOTHING`
     );
 
-    console.log('✅ Seed listo. Usuarios (clave para todos: ' + PASS + '):');
+    console.log('✅ Seed listo. Usuarios (clave: la de SEED_PASSWORD en tu .env):');
     usuarios.forEach(u => console.log(`   ${u[0].padEnd(14)} ${u[3]}`));
     await db.pool.end();
 }

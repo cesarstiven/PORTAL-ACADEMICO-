@@ -1,0 +1,33 @@
+# Blueprint de Render para la demo del portal (plan gratis).
+# En Render: New > Blueprint > elegir este repo. Los valores con sync: false se piden al crear el servicio.
+services:
+  - type: web
+    name: cepdeco-portal
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PAGO_MANUAL
+        value: "on"
+      - key: MODO_DEMO
+        value: "on"
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: EPAYCO_PUBLIC_KEY
+        sync: false
+      - key: EPAYCO_P_KEY
+        sync: false
+      - key: EPAYCO_CUSTOMER_ID
+        sync: false
