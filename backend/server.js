@@ -712,10 +712,19 @@ app.get('/verificar/:codigo', async (req, res) => {
 // ---------- Errores ----------
 app.use('/api', (req, res) => res.status(404).json({ success: false, message: 'Ruta no encontrada' }));
 
+// Errores de conexión con la BD: clave incorrecta (28P01), servidor caído o sin respuesta
+const esErrorDeBD = (err) =>
+    ['28P01', '28000', '57P01', '53300', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNRESET'].includes(err.code) ||
+    /timeout|Connection terminated|credentials/i.test(err.message || '');
+
 app.use((err, req, res, next) => {
     if (err.type === 'entity.parse.failed') return res.status(400).json({ success: false, message: 'JSON inválido' });
-    console.error('Error:', err);
     if (res.headersSent) return next(err);
+    if (esErrorDeBD(err)) {
+        console.error(`❌ Sin conexión con la BD (${err.code || 'sin código'}): ${err.message}`);
+        return res.status(503).json({ success: false, message: 'El portal no pudo conectarse a la base de datos. Intenta de nuevo en un momento.' });
+    }
+    console.error('Error:', err);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
