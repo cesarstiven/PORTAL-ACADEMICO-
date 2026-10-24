@@ -6,7 +6,7 @@
     <title>Portal Web CEPDECO</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             /* Colores tomados del logo de CEPDECO */
@@ -162,82 +162,268 @@
         .form-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 
         /* --- Login --- */
-        /* Pantalla dividida: foto de Codazzi a la izquierda, formulario sobre blanco a la derecha */
-        .login-screen { display: flex; flex-direction: column; min-height: 100vh; background: var(--superficie); }
-        .login-split { flex: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(400px, 1fr); }
-        .login-foto { position: relative; overflow: hidden; background: var(--azul-oscuro); color: #fff; }
-        .login-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 45%; }
-        /* Capa: deja ver el cielo arriba y oscurece abajo para que el texto blanco siempre se lea */
-        .login-foto::after {
+        /* Foto institucional a pantalla completa + tarjeta de vidrio flotante.
+           Para cambiar la foto basta con reemplazar /img/fondo-codazzi.jpg (o el src del <img> en .login-fondo). */
+        .login-screen {
+            --vidrio: rgba(255, 255, 255, 0.92);
+            --texto-card: #3a4352;   /* ≥ 7:1 sobre la tarjeta (WCAG AAA) */
+            --error-login: #8a1c13;
+            --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+            position: relative;
+            isolation: isolate;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow: hidden;
+            background: #0a1434;
+            color: #fff;
+        }
+        .login-screen .franja { position: relative; z-index: 2; }
+
+        /* Fondo: foto + capas de color de marca. Zoom lento de entrada (solo transform: corre en GPU) */
+        .login-fondo { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+        .login-fondo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 40%;
+            transform-origin: 50% 40%;
+            animation: acercar 2.4s var(--ease-out) both;
+        }
+        @keyframes acercar { from { transform: scale(1.12); } }
+        .login-fondo::after {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(180deg, rgba(20, 41, 95, 0.10) 0%, rgba(20, 41, 95, 0.35) 50%, rgba(12, 25, 60, 0.92) 100%);
+            background:
+                radial-gradient(120% 90% at 70% 30%, rgba(29, 58, 138, 0) 0%, rgba(10, 20, 52, 0.55) 70%),
+                linear-gradient(100deg, rgba(8, 16, 42, 0.88) 0%, rgba(14, 30, 75, 0.45) 42%, rgba(10, 20, 52, 0.62) 100%),
+                linear-gradient(180deg, rgba(10, 20, 52, 0) 60%, rgba(6, 12, 32, 0.9) 100%);
         }
-        .login-marca { position: absolute; z-index: 1; left: 48px; right: 48px; bottom: 76px; }
-        .login-marca strong { display: block; font-size: 2.75rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1.1; }
-        .login-marca .sub { display: block; font-size: 1.25rem; font-weight: 600; margin-top: 4px; }
-        .login-marca .lema { display: block; font-size: 1.0625rem; color: #dbe3f5; margin-top: 12px; max-width: 36ch; }
-        .login-lugar { position: absolute; z-index: 1; left: 48px; bottom: 28px; display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #c9d3ea; }
-        .login-lugar .icono { width: 16px; height: 16px; }
 
-        .login-panel { display: flex; flex-direction: column; }
-        .login-form-wrap {
+        .login-escena {
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+            align-items: center;
+            gap: 64px;
             width: 100%;
-            max-width: 380px;
+            max-width: 1320px;
             margin: 0 auto;
-            padding: 48px 24px;
-            animation: aparecer 260ms var(--ease-out) both;
+            padding: clamp(32px, 6vh, 72px) clamp(16px, 5vw, 72px);
         }
-        /* Entrada sutil: el formulario siempre es visible, solo sube 8px (si la animación no corre, no queda oculto) */
-        @keyframes aparecer { from { transform: translateY(8px); } }
-        .login-logo { display: block; width: 112px; height: auto; margin-bottom: 28px; }
-        .login-form-wrap h1 { font-size: 1.75rem; font-weight: 700; color: var(--azul-oscuro); }
-        .login-sub { color: var(--tinta-3); margin: 4px 0 28px; }
-        .login-form-wrap .campo { margin-bottom: 18px; }
-        .login-form-wrap .btn-block { min-height: 46px; margin-top: 6px; font-size: 1rem; }
-        .login-error { color: var(--error-tinta); font-size: 0.9375rem; margin-top: 12px; display: none; }
 
-        /* Campos con ícono interno y botón para ver la contraseña */
-        .input-icono { position: relative; }
-        .input-icono > .icono { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tinta-3); pointer-events: none; transition: color 150ms ease; }
-        .input-icono:focus-within > .icono { color: var(--azul); }
-        .input-icono input { min-height: 46px; padding-left: 40px; }
-        .input-icono input.con-boton { padding-right: 48px; }
-        .ver-clave {
+        /* Bloque de marca sobre la foto */
+        .login-marca { max-width: 560px; }
+        .login-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px 6px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #e6ebf7;
+        }
+        .login-chip .icono { width: 16px; height: 16px; color: var(--amarillo); }
+        .login-titulo {
+            margin-top: 24px;
+            font-family: 'Plus Jakarta Sans', 'Source Sans 3', system-ui, sans-serif;
+            font-size: clamp(2.75rem, 6vw, 5rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .login-titulo .acento { display: block; width: 72px; height: 4px; margin-top: 20px; border-radius: 2px; background: linear-gradient(90deg, var(--amarillo) 0 50%, #4f74d9 50% 75%, var(--rojo) 75%); }
+        .login-marca .sub { margin-top: 20px; font-size: clamp(1.125rem, 1.6vw, 1.375rem); font-weight: 600; }
+        .login-marca .lema { margin-top: 8px; font-size: 1.0625rem; color: #d3dcf0; max-width: 36ch; }
+
+        /* Tarjeta de vidrio */
+        .login-card {
+            position: relative;
+            padding: 40px;
+            border-radius: 24px;
+            background: var(--vidrio);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            backdrop-filter: blur(24px) saturate(160%);
+            color: var(--tinta);
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.6) inset,
+                0 2px 4px rgba(6, 12, 32, 0.12),
+                0 24px 64px -12px rgba(6, 12, 32, 0.55),
+                0 48px 120px -24px rgba(29, 58, 138, 0.45);
+            animation: tarjeta 900ms var(--ease-out) 120ms both;
+        }
+        @keyframes tarjeta { from { opacity: 0; transform: translateY(32px) scale(0.96); } }
+        /* Borde con brillo que sigue al puntero (--x/--y los pone el JS) */
+        .login-card::before {
+            content: '';
             position: absolute;
-            right: 4px;
+            inset: 0;
+            padding: 1.5px;
+            border-radius: inherit;
+            background: radial-gradient(280px circle at var(--x, 50%) var(--y, 0%), rgba(242, 194, 0, 0.95), rgba(79, 116, 217, 0.6) 45%, rgba(255, 255, 255, 0.5) 75%);
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .login-card.sacudir { animation: sacudir 420ms var(--ease-out); }
+        @keyframes sacudir {
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(2px); }
+        }
+
+        /* Logo, título y subtítulo centrados en la tarjeta */
+        .login-encabezado { display: flex; flex-direction: column; align-items: center; }
+        .login-card h1, .login-sub { text-align: center; }
+        .login-logo { display: block; width: 120px; height: auto; margin-bottom: 16px; }
+        .login-card h1 {
+            font-family: 'Plus Jakarta Sans', 'Source Sans 3', system-ui, sans-serif;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--azul-oscuro);
+        }
+        .login-sub { color: var(--texto-card); margin: 4px 0 32px; }
+
+        /* Entrada escalonada: cada elemento .anim usa su --i como turno */
+        .anim { animation: subir 700ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms + 200ms); }
+        @keyframes subir { from { opacity: 0; transform: translateY(16px); filter: blur(4px); } }
+
+        /* Campos con etiqueta flotante, ícono y foco luminoso */
+        .flot { position: relative; margin-bottom: 16px; transition: transform 300ms var(--ease-out); }
+        .flot:focus-within { transform: translateY(-1px); }
+        .flot input {
+            min-height: 56px;
+            padding: 22px 16px 6px 46px;
+            border: 1.5px solid #c9d0db;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.75);
+            font-size: 1rem;
+            transition: border-color 200ms ease, background-color 200ms ease, box-shadow 300ms var(--ease-out);
+        }
+        .flot input.con-boton { padding-right: 52px; }
+        .flot input::placeholder { color: transparent; transition: color 200ms ease; }
+        .flot input:focus::placeholder { color: var(--tinta-3); }
+        .flot input:focus-visible {
+            border-color: var(--azul);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(29, 58, 138, 0.16), 0 10px 28px -10px rgba(29, 58, 138, 0.55);
+        }
+        /* Autorrelleno del navegador: mismo fondo, sin el amarillo */
+        .flot input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px #fff inset; -webkit-text-fill-color: var(--tinta); }
+        .flot label {
+            position: absolute;
+            left: 46px;
             top: 50%;
             transform: translateY(-50%);
-            width: 38px;
-            height: 38px;
+            transform-origin: left center;
+            color: var(--texto-card);
+            font-size: 1rem;
+            pointer-events: none;
+            transition: transform 300ms var(--ease-out), color 200ms ease;
+        }
+        .flot input:focus + label,
+        .flot input:not(:placeholder-shown) + label,
+        .flot input:-webkit-autofill + label { transform: translateY(-112%) scale(0.8); font-weight: 600; }
+        .flot input:focus + label { color: var(--azul); }
+        .flot > .icono {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translateY(-50%);
+            color: var(--texto-card);
+            pointer-events: none;
+            transition: color 200ms ease, transform 300ms var(--ease-spring);
+        }
+        .flot:focus-within > .icono { color: var(--azul); transform: translateY(-50%) scale(1.1); }
+        .ver-clave {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
             display: grid;
             place-items: center;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             background: none;
-            color: var(--tinta-3);
+            color: var(--texto-card);
             cursor: pointer;
             transition: color 150ms ease, background-color 150ms ease;
         }
         .ver-clave:focus-visible { outline: 2px solid var(--azul); outline-offset: 0; }
         @media (hover: hover) and (pointer: fine) { .ver-clave:hover { color: var(--azul); background: var(--azul-tinte); } }
 
+        /* Botón principal: brillo al pasar, pulso mientras carga, verde con check al entrar */
+        .btn-login {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            min-height: 54px;
+            margin-top: 8px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #2448a8 0%, var(--azul) 50%, var(--azul-oscuro) 100%);
+            color: #fff;
+            font-size: 1rem;
+            box-shadow: 0 10px 24px -10px rgba(29, 58, 138, 0.8);
+            transition: transform 300ms var(--ease-out), box-shadow 300ms var(--ease-out), background-color 300ms ease;
+        }
+        .btn-login::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+            transform: translateX(-100%);
+            pointer-events: none;
+        }
+        .btn-login .btn-flecha { width: 18px; height: 18px; transition: transform 300ms var(--ease-spring); }
+        .btn-login .btn-exito { display: none; }
+        @media (hover: hover) and (pointer: fine) {
+            .btn-login:hover:not([disabled]) { transform: translateY(-2px); box-shadow: 0 16px 32px -12px rgba(29, 58, 138, 0.9); }
+            .btn-login:hover:not([disabled])::after { transform: translateX(100%); transition: transform 800ms var(--ease-out); }
+            .btn-login:hover:not([disabled]) .btn-flecha { transform: translateX(4px); }
+        }
+        .btn-login[disabled] { opacity: 1; }
+        .btn-login[aria-busy="true"] { animation: pulso 1.2s ease-out infinite; }
+        .btn-login[aria-busy="true"] .btn-flecha { display: none; }
+        @keyframes pulso {
+            from { box-shadow: 0 0 0 0 rgba(29, 58, 138, 0.5), 0 10px 24px -10px rgba(29, 58, 138, 0.8); }
+            to { box-shadow: 0 0 0 14px rgba(29, 58, 138, 0), 0 10px 24px -10px rgba(29, 58, 138, 0.8); }
+        }
+        .btn-login.exito { background: #1b6b3a; animation: none; }
+        .btn-login.exito .btn-texto, .btn-login.exito .btn-flecha { display: none; }
+        .btn-login.exito .btn-exito { display: inline-flex; align-items: center; gap: 8px; animation: subir 400ms var(--ease-spring) both; }
+
+        .login-error { color: var(--error-login); font-size: 0.9375rem; font-weight: 600; margin-top: 14px; display: none; }
+
         .login-pie {
-            border-top: 1px solid var(--linea);
-            color: var(--tinta-3);
+            position: relative;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(6, 12, 32, 0.55);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
+            color: #c9d3ea;
             font-size: 0.8125rem;
-            padding: 18px 32px;
+            padding: 16px clamp(16px, 5vw, 72px);
             display: flex;
             justify-content: space-between;
             gap: 8px 24px;
             flex-wrap: wrap;
         }
-        .login-pie strong { color: var(--tinta-2); font-weight: 600; }
+        .login-pie strong { color: #fff; font-weight: 600; }
+        .login-pie a { color: #fff; }
 
         /* --- Panel principal --- */
         .app-container { display: none; flex-direction: column; min-height: 100vh; }
@@ -389,21 +575,23 @@
             .toast, .toast.visible { transform: none; }
             .btn:active:not([disabled]) { transform: none; }
             .nav-grupo .chevron { transition: none; }
-            .login-form-wrap { animation: none; }
+            .login-screen .anim, .login-card, .login-card.sacudir, .login-fondo img, .btn-login[aria-busy="true"], .btn-login.exito .btn-exito { animation: none; }
+            .flot, .flot:focus-within, .flot > .icono, .flot label, .btn-login, .btn-login::after { transition: none; }
+            .flot:focus-within { transform: none; }
         }
 
-        /* Login en tableta y celular: la foto pasa a ser una franja arriba */
+        /* Login en tableta y celular: la marca queda arriba, compacta, y la tarjeta ocupa el ancho */
         @media (max-width: 900px) {
-            .login-split { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-            .login-foto { min-height: 240px; }
-            .login-marca { left: 20px; right: 20px; bottom: 48px; }
-            .login-marca strong { font-size: 2rem; }
-            .login-marca .sub { font-size: 1.0625rem; }
-            .login-marca .lema { display: none; }
-            .login-lugar { left: 20px; bottom: 16px; }
-            .login-logo { display: none; }
-            .login-form-wrap { padding: 32px 20px; }
-            .login-pie { padding: 16px 20px; }
+            .login-escena { grid-template-columns: 1fr; align-content: center; gap: 28px; max-width: 520px; }
+            .login-titulo { margin-top: 16px; }
+            .login-titulo .acento, .login-marca .lema { display: none; }
+            .login-marca .sub { margin-top: 6px; }
+        }
+        @media (max-width: 480px) {
+            .login-card { padding: 28px 20px; border-radius: 20px; }
+            .login-logo { width: 88px; margin-bottom: 16px; }
+            .login-card h1 { font-size: 1.5rem; }
+            .login-sub { margin-bottom: 24px; }
         }
 
         /* --- Celular y tableta --- */
@@ -433,48 +621,53 @@
 
 <!-- LOGIN -->
 <div id="login-screen" class="login-screen">
+    <!-- Foto institucional: reemplazar /img/fondo-codazzi.jpg (ideal ≥ 2400 px de ancho para pantallas ultrawide) -->
+    <div class="login-fondo" aria-hidden="true">
+        <img src="/img/fondo-codazzi.jpg" width="960" height="720" alt="" fetchpriority="high">
+    </div>
     <div class="franja"></div>
-    <div class="login-split">
-        <section class="login-foto">
-            <img src="/img/fondo-codazzi.jpg" width="960" height="720" alt="">
-            <div class="login-marca">
-                <strong>CEPDECO</strong>
-                <span class="sub">Portal académico</span>
-                <span class="lema">Formación para el liderazgo y emprendimiento</span>
-            </div>
-            <p class="login-lugar">
+    <div class="login-escena">
+        <section class="login-marca">
+            <p class="login-chip anim" style="--i:0">
                 <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
                 Agustín Codazzi, Cesar
             </p>
+            <p class="login-titulo anim" style="--i:1">CEPDECO<span class="acento"></span></p>
+            <p class="sub anim" style="--i:2">Portal académico</p>
+            <p class="lema anim" style="--i:3">Formación para el liderazgo y emprendimiento</p>
         </section>
 
-        <main class="login-panel">
-            <div class="login-form-wrap">
-                <img class="login-logo" src="/img/logo-cepdeco.png" width="787" height="672"
+        <main class="login-card" id="login-card">
+            <div class="login-encabezado">
+                <img class="login-logo anim" style="--i:2" src="/img/logo-cepdeco-transparente.png" width="541" height="462"
                      alt="CEPDECO: Formación para el liderazgo y emprendimiento">
-                <h1>Iniciar sesión</h1>
-                <p class="login-sub">Acceso al sistema de gestión académica</p>
-                <form id="login-form">
-                    <label class="campo" for="username"><span>Usuario</span>
-                        <span class="input-icono">
-                            <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-                            <input type="text" id="username" placeholder="Ej. ceshernandez" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-                        </span>
-                    </label>
-                    <label class="campo" for="password"><span>Contraseña</span>
-                        <span class="input-icono">
-                            <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-                            <input type="password" id="password" class="con-boton" placeholder="Tu contraseña" autocomplete="current-password" required>
-                            <button type="button" class="ver-clave" id="ver-clave" aria-label="Mostrar contraseña" aria-pressed="false" onclick="verClave()"></button>
-                        </span>
-                    </label>
-                    <button type="submit" id="login-btn" class="btn btn-primary btn-block">Iniciar sesión</button>
-                    <p id="login-error" class="login-error" role="alert"></p>
-                </form>
+                <h1 class="anim" style="--i:3">Iniciar sesión</h1>
             </div>
-            <footer class="login-pie" id="pie-login"></footer>
+            <p class="login-sub anim" style="--i:4">Accede al sistema de gestión académica</p>
+            <form id="login-form">
+                <div class="flot anim" style="--i:5">
+                    <input type="text" id="username" placeholder="Ej. ceshernandez" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                    <label for="username">Usuario</label>
+                    <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                </div>
+                <div class="flot anim" style="--i:6">
+                    <input type="password" id="password" class="con-boton" placeholder="Tu contraseña" autocomplete="current-password" required>
+                    <label for="password">Contraseña</label>
+                    <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                    <button type="button" class="ver-clave" id="ver-clave" aria-label="Mostrar contraseña" aria-pressed="false" onclick="verClave()"></button>
+                </div>
+                <div class="anim" style="--i:7">
+                    <button type="submit" id="login-btn" class="btn btn-login">
+                        <span class="btn-texto">Iniciar sesión</span>
+                        <svg class="icono btn-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+                        <span class="btn-exito"><svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Acceso concedido</span>
+                    </button>
+                </div>
+                <p id="login-error" class="login-error" role="alert"></p>
+            </form>
         </main>
     </div>
+    <footer class="login-pie" id="pie-login"></footer>
 </div>
 
 <!-- APP -->
@@ -816,13 +1009,36 @@ $('login-form').addEventListener('submit', (e) => {
             token = data.token; user = data.user;
             sessionStorage.setItem('token', token);
             sessionStorage.setItem('user', JSON.stringify(user));
+            // Muestra el check verde un instante antes de entrar
+            $('login-btn').classList.add('exito');
+            await new Promise((r) => setTimeout(r, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 550));
             entrar();
         } catch (ex) {
             err.textContent = ex.message;
             err.style.display = 'block';
+            const card = $('login-card');
+            card.classList.remove('sacudir');
+            void card.offsetWidth; // reinicia la animación si falla dos veces seguidas
+            card.classList.add('sacudir');
         }
     });
 });
+
+// Brillo del borde de la tarjeta que sigue al puntero (solo con mouse)
+if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let pendiente = false;
+    $('login-screen').addEventListener('pointermove', (e) => {
+        if (pendiente) return;
+        pendiente = true;
+        requestAnimationFrame(() => {
+            const card = $('login-card');
+            const r = card.getBoundingClientRect();
+            card.style.setProperty('--x', `${e.clientX - r.left}px`);
+            card.style.setProperty('--y', `${e.clientY - r.top}px`);
+            pendiente = false;
+        });
+    });
+}
 
 function logout() {
     token = null; user = null;
@@ -830,6 +1046,7 @@ function logout() {
     $('app-screen').style.display = 'none';
     $('login-screen').style.display = 'flex';
     $('login-form').reset();
+    $('login-btn').classList.remove('exito');
     verClave(false);
 }
 

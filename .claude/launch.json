@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "portal",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file-if-exists=backend/.env", "backend/server.js"],
+      "port": 5000
+    }
+  ]
+}
