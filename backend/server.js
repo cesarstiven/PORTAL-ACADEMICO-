@@ -12,7 +12,14 @@ const db = require('./db');
 const { NOTA_MINIMA, num, periodoActual, resumenNotas } = require('./academico');
 
 const PORT = process.env.PORT || 5000;
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+// URL pública (QR del certificado y confirmación de ePayco). Si PUBLIC_URL no es una URL válida se ignora
+// sin imprimirla (podría ser una clave pegada por error) y se usa la que Render define sola.
+let urlPublica = process.env.PUBLIC_URL || '';
+if (urlPublica && !/^https?:\/\/[^\s/]+/.test(urlPublica)) {
+    console.error('❌ PUBLIC_URL no es una URL (debe empezar con https://): se ignora. Corrígela en las variables de entorno.');
+    urlPublica = '';
+}
+const PUBLIC_URL = (urlPublica || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const PRECIO_CERTIFICADO = 25000;
 const LICENCIA = 'Resolución 002844';
 // Firma del certificado. PENDIENTE: autorización de CEPDECO para usar el nombre.
