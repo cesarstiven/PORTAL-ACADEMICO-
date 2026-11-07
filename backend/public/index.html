@@ -1619,7 +1619,8 @@ const pagar = (btn) => conCarga(btn, async () => {
             tax: '0',
             country: 'co',
             lang: 'es',
-            external: 'false',
+            // 'true': ePayco abre en su propia página (no en un recuadro), así Safari no bloquea cookies ni ventanas
+            external: 'true',
             confirmation: p.confirmationUrl,
             response: location.origin + '/',
             name_billing: user.nombre,
