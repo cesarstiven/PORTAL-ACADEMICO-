@@ -22,6 +22,9 @@ if (urlPublica && !/^https?:\/\/[^\s/]+/.test(urlPublica)) {
 const PUBLIC_URL = (urlPublica || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const PRECIO_CERTIFICADO = 25000;
 const LICENCIA = 'Resolución 002844';
+// Datos del RUT de CEPDECO
+const RAZON_SOCIAL = 'Corporación Educativa para el Desarrollo de Colombia LTDA';
+const NIT = '901.564.263-9';
 // Firma del certificado. PENDIENTE: autorización de CEPDECO para usar el nombre.
 // Para quitarla del PDF: const FIRMA_CERTIFICADO = null;
 const FIRMA_CERTIFICADO = { nombre: 'Edenia Ayola Ortega', cargo: 'Directora General' };
@@ -589,8 +592,8 @@ app.get('/api/certificados/:codigo/pdf', auth, async (req, res) => {
     doc.pipe(res);
 
     doc.fontSize(22).fillColor('#2b6cb0').text('CEPDECO', { align: 'center' });
-    doc.fontSize(10).fillColor('#718096').text('Corporación Educativa para el Desarrollo de Colombia', { align: 'center' });
-    doc.fontSize(9).text(`Licencia de funcionamiento: ${LICENCIA}`, { align: 'center' });
+    doc.fontSize(10).fillColor('#718096').text(RAZON_SOCIAL, { align: 'center' });
+    doc.fontSize(9).text(`NIT ${NIT} · Licencia de funcionamiento: ${LICENCIA}`, { align: 'center' });
     doc.moveDown(2);
     doc.fontSize(16).fillColor('#2d3748').text(cert.tipo_certificado.toUpperCase(), { align: 'center' });
     doc.moveDown(1.5);
@@ -712,7 +715,7 @@ app.get('/verificar/:codigo', async (req, res) => {
   <h1>Verificación pública de certificados</h1>
   ${caja}
 </div></main>
-<footer>Licencia de funcionamiento: ${LICENCIA}</footer>
+<footer>${RAZON_SOCIAL} · NIT ${NIT}<br>Licencia de funcionamiento: ${LICENCIA}</footer>
 </body></html>`);
 });
 

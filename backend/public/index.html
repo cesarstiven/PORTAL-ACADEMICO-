@@ -943,6 +943,7 @@
                         <h3>Sobre CEPDECO</h3>
                         <div>
                             <p><strong>Formación para el liderazgo y emprendimiento.</strong> Servicio de educación formal e informal en Agustín Codazzi, Cesar.</p>
+                            <p class="texto-sec">Corporación Educativa para el Desarrollo de Colombia LTDA · NIT 901.564.263-9</p>
                             <p class="texto-sec">Licencia de funcionamiento: Resolución 002844</p>
                         </div>
                     </section>
@@ -1206,7 +1207,7 @@ const contactoHtml = () =>
     dato('Facebook', enlacesFacebook());
 
 $('pie-login').innerHTML = `<div><strong>Contacto CEPDECO</strong><br>${esc(CEPDECO.direccion)}<br>Tel. ${esc(CEPDECO.telefono)} · <a href="mailto:${CEPDECO.correo}">${esc(CEPDECO.correo)}</a></div>
-    <div>Licencia de funcionamiento: Resolución 002844<br>${enlacesFacebook()}</div>`;
+    <div>NIT 901.564.263-9 · Licencia de funcionamiento: Resolución 002844<br>${enlacesFacebook()}</div>`;
 
 fetch('/api/config').then((r) => r.json()).then((c) => { $('aviso-demo').hidden = !c.demo; }).catch(() => {});
 
