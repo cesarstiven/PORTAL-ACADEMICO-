@@ -170,6 +170,19 @@ function safeEqual(a, b) {
     return crypto.timingSafeEqual(ha, hb);
 }
 
+// Municipio de origen y jornada (solo estudiantes; para el análisis de Gerencia). Vacío = sin registrar.
+const MUNICIPIOS = ['Valledupar', 'Agustín Codazzi', 'La Paz', 'San Diego', 'Manaure', 'Becerril'];
+const JORNADAS = ['Mañana', 'Tarde', 'Sabatino', 'Nocturno'];
+function validarOrigen(b, errores) {
+    const municipio = String(b.municipio ?? '').trim() || null;
+    const jornada = String(b.jornada ?? '').trim() || null;
+    if (municipio && !MUNICIPIOS.includes(municipio)) errores.push('Municipio de origen inválido');
+    if (jornada && !JORNADAS.includes(jornada)) errores.push('Jornada inválida');
+    return { municipio, jornada };
+}
+// Fecha AAAA-MM-DD que existe de verdad (rechaza 2026-02-31)
+const fechaValida = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
+
 // ---------- Salud ----------
 app.get('/api/health', async (req, res) => {
     try {
@@ -487,7 +500,7 @@ app.post('/api/docente/plantilla/:id', auth, rol('Docente', 'Administrador'), su
 app.get('/api/admin/resumen', auth, rol('Administrador'), async (req, res) => {
     const usuarios = await db.query(
         `SELECT u.id, u.username, u.nombre_completo, u.email, u.tipo_documento, u.documento, u.telefono,
-                r.nombre AS rol, u.programa_id, p.nombre AS programa
+                r.nombre AS rol, u.programa_id, p.nombre AS programa, u.municipio, u.jornada
          FROM usuarios u JOIN roles r ON r.id = u.rol_id
          LEFT JOIN programas p ON p.id = u.programa_id ORDER BY u.id`
     );
@@ -521,6 +534,7 @@ app.post('/api/admin/usuarios', auth, rol('Administrador'), async (req, res) => 
     if (!RE_USUARIO.test(username)) return res.status(400).json({ success: false, message: 'El usuario solo admite letras, números, punto, guion y guion bajo (3 a 40)' });
     if (password.length < 8) return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
     const { errores, datos } = validarPersona(b);
+    const origen = validarOrigen(b, errores);
     if (errores.length) return res.status(400).json({ success: false, message: errores.join('. ') });
     const r = await db.query('SELECT id FROM roles WHERE nombre = $1', [b.rol]);
     if (!r.rows.length) return res.status(400).json({ success: false, message: 'Rol inválido' });
@@ -531,10 +545,12 @@ app.post('/api/admin/usuarios', auth, rol('Administrador'), async (req, res) => 
         const hash = await bcrypt.hash(password, 10);
         await db.query(
             // La clave que pone el admin es temporal: el usuario la cambia al entrar
-            `INSERT INTO usuarios (username, password_hash, nombre_completo, email, tipo_documento, documento, telefono, rol_id, programa_id, debe_cambiar_clave)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)`,
+            `INSERT INTO usuarios (username, password_hash, nombre_completo, email, tipo_documento, documento, telefono, rol_id, programa_id,
+                                   municipio, jornada, debe_cambiar_clave)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE)`,
             [username, hash, datos.nombre_completo, datos.email, datos.tipo_documento, datos.documento, datos.telefono, r.rows[0].id,
-             b.rol === 'Estudiante' && b.programa_id ? b.programa_id : null]
+             b.rol === 'Estudiante' && b.programa_id ? b.programa_id : null,
+             b.rol === 'Estudiante' ? origen.municipio : null, b.rol === 'Estudiante' ? origen.jornada : null]
         );
         res.status(201).json({ success: true, message: 'Usuario creado: deberá cambiar la clave en su primer ingreso' });
     } catch (e) {
@@ -552,15 +568,18 @@ app.put('/api/admin/usuarios/:id', auth, rol('Administrador'), async (req, res) 
         'SELECT u.id, r.nombre AS rol FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1', [id])).rows[0];
     if (!actual) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     const { errores, datos } = validarPersona(b);
+    const origen = validarOrigen(b, errores);
     const nuevaClave = String(b.nueva_clave ?? '');
     if (nuevaClave && nuevaClave.length < 8) errores.push('La nueva clave temporal debe tener al menos 8 caracteres');
     if (errores.length) return res.status(400).json({ success: false, message: errores.join('. ') });
     const programa = actual.rol === 'Estudiante' && b.programa_id ? parseInt(b.programa_id, 10) || null : null;
     try {
         await db.query(
-            `UPDATE usuarios SET nombre_completo = $2, email = $3, tipo_documento = $4, documento = $5, telefono = $6, programa_id = $7
+            `UPDATE usuarios SET nombre_completo = $2, email = $3, tipo_documento = $4, documento = $5, telefono = $6, programa_id = $7,
+                                municipio = $8, jornada = $9
              WHERE id = $1`,
-            [id, datos.nombre_completo, datos.email, datos.tipo_documento, datos.documento, datos.telefono, programa]
+            [id, datos.nombre_completo, datos.email, datos.tipo_documento, datos.documento, datos.telefono, programa,
+             actual.rol === 'Estudiante' ? origen.municipio : null, actual.rol === 'Estudiante' ? origen.jornada : null]
         );
         if (nuevaClave) {
             await db.query('UPDATE usuarios SET password_hash = $2, debe_cambiar_clave = TRUE WHERE id = $1', [id, await bcrypt.hash(nuevaClave, 10)]);
@@ -1042,10 +1061,10 @@ app.get('/api/gerente/cartera', auth, rol('Gerente', 'Administrador', 'Secretari
                     ROUND(AVG(c1), 2) AS c1, ROUND(AVG(c2), 2) AS c2, ROUND(AVG(c3), 2) AS c3
              FROM nota_matricula GROUP BY estudiante_id
          ),
-         pagos AS (SELECT cartera_id, SUM(monto) AS pagado, COUNT(*) AS abonos FROM abonos_matricula GROUP BY cartera_id),
+         pagos AS (SELECT cartera_id, SUM(monto) AS pagado FROM abonos_matricula GROUP BY cartera_id),
          cartera AS (
              SELECT cm.id, cm.estudiante_id, cm.valor_total, cm.fecha_limite_pago,
-                    COALESCE(p.pagado, 0) AS pagado, COALESCE(p.abonos, 0) AS abonos,
+                    COALESCE(p.pagado, 0) AS pagado,
                     cm.valor_total - COALESCE(p.pagado, 0) AS saldo,
                     cm.fecha_limite_pago - (SELECT d FROM hoy) AS dias
              FROM cartera_matriculas cm LEFT JOIN pagos p ON p.cartera_id = cm.id
@@ -1053,7 +1072,7 @@ app.get('/api/gerente/cartera', auth, rol('Gerente', 'Administrador', 'Secretari
          )
          SELECT u.id, u.nombre_completo AS nombre, u.tipo_documento, u.documento, u.telefono, u.municipio, u.jornada,
                 u.estado_academico, pr.nombre AS programa,
-                ca.id AS cartera_id, ca.valor_total, ca.pagado, ca.saldo, ca.abonos, ca.fecha_limite_pago::text AS fecha_limite_pago, ca.dias,
+                ca.id AS cartera_id, ca.valor_total, ca.pagado, ca.saldo, ca.fecha_limite_pago::text AS fecha_limite_pago, ca.dias,
                 CASE WHEN ca.id IS NULL THEN NULL
                      WHEN ca.saldo <= 0 THEN 'PAZ_Y_SALVO'
                      WHEN ca.dias < 0 THEN 'PLAZO_VENCIDO'
@@ -1072,7 +1091,7 @@ app.get('/api/gerente/cartera', auth, rol('Gerente', 'Administrador', 'Secretari
     const n = (v) => (v === null ? null : Number(v));
     res.json({
         success: true, periodo, notaMinima: NOTA_MINIMA,
-        filas: r.rows.map((f) => ({ ...f, valor_total: n(f.valor_total), pagado: n(f.pagado), saldo: n(f.saldo), abonos: n(f.abonos), promedio: n(f.promedio), c1: n(f.c1), c2: n(f.c2), c3: n(f.c3) }))
+        filas: r.rows.map((f) => ({ ...f, valor_total: n(f.valor_total), pagado: n(f.pagado), saldo: n(f.saldo), promedio: n(f.promedio), c1: n(f.c1), c2: n(f.c2), c3: n(f.c3) }))
     });
 });
 
@@ -1084,7 +1103,7 @@ app.post('/api/cartera', auth, rol('Secretaria', 'Administrador'), async (req, r
     const fecha = String(b.fecha_limite_pago || '');
     if (!Number.isInteger(estudianteId)) throw httpError(400, 'Elige un estudiante');
     if (!Number.isFinite(valor) || valor <= 0 || valor > 100000000) throw httpError(400, 'El valor de la matrícula debe ser mayor que 0');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || isNaN(Date.parse(fecha))) throw httpError(400, 'La fecha límite no es válida');
+    if (!fechaValida(fecha)) throw httpError(400, 'La fecha límite no es válida');
     const est = await db.query(`SELECT 1 FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1 AND r.nombre = 'Estudiante'`, [estudianteId]);
     if (!est.rowCount) throw httpError(400, 'Ese usuario no es un estudiante');
     const periodo = periodoActual();
@@ -1127,6 +1146,24 @@ app.post('/api/cartera/:id/abonos', auth, rol('Secretaria', 'Administrador'), as
     }
 });
 
+// Abonos de una matrícula (para revisar o corregir)
+app.get('/api/cartera/:id/abonos', auth, rol('Secretaria', 'Administrador'), async (req, res) => {
+    const r = await db.query(
+        `SELECT a.id, a.monto, a.fecha::text AS fecha, a.nota, u.nombre_completo AS registrado_por
+         FROM abonos_matricula a LEFT JOIN usuarios u ON u.id = a.registrado_por
+         WHERE a.cartera_id = $1 ORDER BY a.fecha DESC, a.id DESC`, [parseInt(req.params.id, 10) || 0]
+    );
+    res.json({ success: true, abonos: r.rows.map((a) => ({ ...a, monto: Number(a.monto) })) });
+});
+
+// Solo el Administrador anula un abono mal registrado (p. ej. un valor mal digitado)
+app.delete('/api/cartera/abonos/:id', auth, rol('Administrador'), async (req, res) => {
+    const r = await db.query('DELETE FROM abonos_matricula WHERE id = $1', [parseInt(req.params.id, 10) || 0]);
+    if (!r.rowCount) throw httpError(404, 'No se encontró ese abono');
+    console.log(`[Abonos] ${req.user.username} anuló el abono ${parseInt(req.params.id, 10)}`);
+    res.json({ success: true, message: 'Abono anulado' });
+});
+
 // Vigencia de cuentas: una consulta. "Por vencer" (<= 15 días) se calcula.
 app.get('/api/gerente/cuentas', auth, rol('Gerente', 'Administrador'), async (req, res) => {
     const r = await db.query(
@@ -1164,13 +1201,20 @@ app.put('/api/gerente/cuentas/:id/estado', auth, rol('Gerente', 'Administrador')
     if (estado === 'INACTIVO_RETIRADO') {
         const motivo = String((req.body || {}).motivo || '');
         if (!MOTIVOS_INACTIVO.includes(motivo)) throw httpError(400, 'Elige el motivo');
-        await db.query(`UPDATE usuarios SET estado_cuenta = 'INACTIVO_RETIRADO', motivo_estado = $2 WHERE id = $1`, [u.id, motivo]);
+        // En estudiantes, el motivo define el estado académico (así la tasa de deserción refleja la realidad)
+        await db.query(
+            `UPDATE usuarios SET estado_cuenta = 'INACTIVO_RETIRADO', motivo_estado = $2::varchar,
+                    estado_academico = CASE WHEN $3::text <> 'Estudiante' THEN estado_academico
+                                            WHEN $2::varchar = 'Retiro voluntario' THEN 'RETIRADO_DESERTOR'
+                                            WHEN $2::varchar = 'Graduado' THEN 'GRADUADO' ELSE estado_academico END
+             WHERE id = $1`, [u.id, motivo, u.rol]);
         return res.json({ success: true, message: 'Cuenta pasada a Inactivo / Ya no continúa' });
     }
     if (estado !== 'ACTIVO') throw httpError(400, 'Estado inválido');
     // Si su fecha ya pasó, se le da 1 mes desde hoy (si no, volvería a quedar inactiva al instante)
     await db.query(
         `UPDATE usuarios SET estado_cuenta = 'ACTIVO', motivo_estado = 'Periodo vigente',
+                estado_academico = CASE WHEN estado_academico = 'RETIRADO_DESERTOR' THEN 'ACTIVO' ELSE estado_academico END,
                 fecha_vencimiento_acceso = CASE WHEN fecha_vencimiento_acceso < ${HOY_SQL} THEN ${HOY_SQL} + INTERVAL '1 month' ELSE fecha_vencimiento_acceso END
          WHERE id = $1`, [u.id]
     );
@@ -1185,13 +1229,14 @@ app.put('/api/gerente/cuentas/:id/vigencia', auth, rol('Gerente', 'Administrador
     let expr, params = [u.id];
     if (v === '+1m') expr = `${base} + INTERVAL '1 month'`;
     else if (v === '+6m') expr = `${base} + INTERVAL '6 months'`;
-    else if (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v))) {
+    else if (fechaValida(v)) {
         const ok = (await db.query(`SELECT $1::date >= ${HOY_SQL} AS ok`, [v])).rows[0].ok;
         if (!ok) throw httpError(400, 'La fecha no puede ser anterior a hoy');
         expr = '$2::date'; params.push(v);
     } else throw httpError(400, 'Vigencia inválida');
     const r = await db.query(
-        `UPDATE usuarios SET fecha_vencimiento_acceso = ${expr}, estado_cuenta = 'ACTIVO', motivo_estado = 'Periodo vigente'
+        `UPDATE usuarios SET fecha_vencimiento_acceso = ${expr}, estado_cuenta = 'ACTIVO', motivo_estado = 'Periodo vigente',
+                estado_academico = CASE WHEN estado_academico = 'RETIRADO_DESERTOR' THEN 'ACTIVO' ELSE estado_academico END
          WHERE id = $1 RETURNING fecha_vencimiento_acceso::text AS fecha_vencimiento_acceso`, params
     );
     res.json({ success: true, message: 'Vigencia renovada', fecha: r.rows[0].fecha_vencimiento_acceso });

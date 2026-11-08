@@ -1222,6 +1222,8 @@
                             <select id="nu-rol"><option>Estudiante</option><option>Docente</option><option>Secretaria</option><option>Gerente</option><option>Administrador</option></select>
                         </label>
                         <label class="campo campo-ancho"><span>Programa (solo estudiantes)</span><select id="nu-programa"></select></label>
+                        <label class="campo"><span>Municipio de origen (estudiantes)</span><select id="nu-municipio"><option value="">Sin registrar</option><option>Agustín Codazzi</option><option>Becerril</option><option>La Paz</option><option>Manaure</option><option>San Diego</option><option>Valledupar</option></select></label>
+                        <label class="campo campo-corto"><span>Jornada (estudiantes)</span><select id="nu-jornada"><option value="">Sin registrar</option><option>Mañana</option><option>Tarde</option><option>Sabatino</option><option>Nocturno</option></select></label>
                         <button class="btn btn-primary" onclick="crearUsuario(this)">Crear usuario</button>
                     </div>
                 </section>
@@ -1279,6 +1281,8 @@
                         <label class="campo"><span>Documento</span><input id="ed-doc" autocomplete="off" inputmode="numeric"></label>
                         <label class="campo"><span>Teléfono</span><input id="ed-tel" type="tel" autocomplete="off"></label>
                         <label class="campo campo-ancho" id="ed-programa-campo"><span>Programa</span><select id="ed-programa"></select></label>
+                        <label class="campo" id="ed-municipio-campo"><span>Municipio de origen</span><select id="ed-municipio"><option value="">Sin registrar</option><option>Agustín Codazzi</option><option>Becerril</option><option>La Paz</option><option>Manaure</option><option>San Diego</option><option>Valledupar</option></select></label>
+                        <label class="campo campo-corto" id="ed-jornada-campo"><span>Jornada</span><select id="ed-jornada"><option value="">Sin registrar</option><option>Mañana</option><option>Tarde</option><option>Sabatino</option><option>Nocturno</option></select></label>
                         <label class="campo campo-ancho"><span>Nueva clave temporal (opcional, mín. 8)</span><input id="ed-clave" type="password" autocomplete="new-password"></label>
                     </div>
                     <div class="barra-acciones">
@@ -1504,6 +1508,16 @@
                         <label class="campo"><span>Monto del abono (COP)</span><input id="ab-monto" type="number" min="1" step="1000" inputmode="numeric"></label>
                         <label class="campo campo-ancho"><span>Nota (opcional)</span><input id="ab-nota" maxlength="120" placeholder="Ej.: efectivo en secretaría, transferencia Nequi"></label>
                         <button type="button" class="btn btn-primary" onclick="registrarAbono(this)">Registrar abono</button>
+                    </div>
+                </section>
+                <section class="bloque">
+                    <h3>Abonos registrados</h3>
+                    <p class="texto-sec" id="ab-hist-nota">Si un abono quedó mal digitado, el Administrador puede anularlo y registrarlo de nuevo.</p>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Fecha</th><th class="num">Monto</th><th>Nota</th><th>Registrado por</th><th><span class="sr-only">Acción</span></th></tr></thead>
+                            <tbody id="ab-historial"></tbody>
+                        </table>
                     </div>
                 </section>
             </div>
@@ -2215,7 +2229,8 @@ const TIPOS_DOC = ['CC', 'TI', 'CE', 'PPT', 'PA', 'RC'];
 const crearUsuario = (btn) => accionAdmin(btn, '/api/admin/usuarios', {
     username: $('nu-user').value, nombre_completo: $('nu-nombre').value, email: $('nu-email').value,
     tipo_documento: $('nu-tipo').value, documento: $('nu-doc').value, telefono: $('nu-tel').value,
-    password: $('nu-pass').value, rol: $('nu-rol').value, programa_id: $('nu-programa').value || null
+    password: $('nu-pass').value, rol: $('nu-rol').value, programa_id: $('nu-programa').value || null,
+    municipio: $('nu-municipio').value, jornada: $('nu-jornada').value
 });
 
 // ---- Usuarios: búsqueda y edición ----
@@ -2249,6 +2264,9 @@ function editarUsuario(id) {
     $('ed-clave').value = '';
     $('ed-programa-campo').hidden = u.rol !== 'Estudiante';
     $('ed-programa').value = u.programa_id || '';
+    $('ed-municipio-campo').hidden = $('ed-jornada-campo').hidden = u.rol !== 'Estudiante';
+    $('ed-municipio').value = u.municipio || '';
+    $('ed-jornada').value = u.jornada || '';
     $('dlg-usuario').showModal();
     $('ed-nombre').focus();
 }
@@ -2257,7 +2275,8 @@ const guardarUsuario = (btn) => conCarga(btn, async () => {
     try {
         const r = await api('/api/admin/usuarios/' + editandoId, { method: 'PUT', body: {
             nombre_completo: $('ed-nombre').value, email: $('ed-email').value, tipo_documento: $('ed-tipo').value,
-            documento: $('ed-doc').value, telefono: $('ed-tel').value, programa_id: $('ed-programa').value || null, nueva_clave: $('ed-clave').value
+            documento: $('ed-doc').value, telefono: $('ed-tel').value, programa_id: $('ed-programa').value || null, nueva_clave: $('ed-clave').value,
+            municipio: $('ed-municipio').value, jornada: $('ed-jornada').value
         } });
         $('dlg-usuario').close();
         msg(r.message);
@@ -2616,8 +2635,32 @@ function mostrarAbono() {
     $('ab-resumen').innerHTML = !f ? '' : !f.cartera_id ? kpi('Matrícula del periodo', 'Sin registrar')
         : kpi('Valor total', COP(f.valor_total)) + kpi('Pagado', COP(f.pagado)) + kpi('Falta por pagar', COP(f.saldo)) +
           kpi('Fecha límite', fechaCorta(f.fecha_limite_pago)) + `<div class="kpi"><small>Estado</small><strong><span class="est-pago est-${f.estado_pago}">${ESTADOS_PAGO[f.estado_pago]}</span></strong></div>`;
+    cargarHistorialAbonos(f);
     $('ab-valor').value = f && f.cartera_id ? f.valor_total : '';
     $('ab-fecha').value = f && f.cartera_id ? f.fecha_limite_pago : '';
+}
+async function cargarHistorialAbonos(f) {
+    if (!f || !f.cartera_id) { $('ab-historial').innerHTML = vacio(5, 'Sin matrícula registrada en este periodo'); return; }
+    try {
+        const { abonos } = await api(`/api/cartera/${f.cartera_id}/abonos`);
+        if (String(f.id) !== $('ab-est').value) return; // cambió de estudiante mientras cargaba
+        const admin = user.rol === 'Administrador';
+        $('ab-historial').innerHTML = abonos.length ? abonos.map((a) => `<tr>
+            <td>${fechaCorta(a.fecha)}</td><td class="num">${COP(a.monto)}</td><td>${esc(a.nota || '-')}</td><td>${esc(a.registrado_por || '-')}</td>
+            <td>${admin ? `<button type="button" class="btn btn-secondary btn-sm" onclick="anularAbono(this, ${a.id}, ${a.monto})">Anular</button>` : ''}</td></tr>`).join('')
+            : vacio(5, 'Todavía no hay abonos');
+    } catch (e) { msg(e.message, false); }
+}
+async function anularAbono(btn, id, monto) {
+    const f = abData.filas.find((x) => String(x.id) === $('ab-est').value);
+    const ok = await confirmar('Anular abono',
+        `¿Seguro que deseas anular el abono de <strong>${COP(monto)}</strong> de <strong>${esc(f.nombre)}</strong>?<br>
+         Su saldo pendiente subirá en ese valor. Esta acción no se puede deshacer.`, 'Sí, anular abono');
+    if (!ok) return;
+    await conCarga(btn, async () => {
+        try { msg((await api(`/api/cartera/abonos/${id}`, { method: 'DELETE' })).message); await cargarAbonos(); }
+        catch (e) { msg(e.message, false); }
+    });
 }
 async function guardarMatricula(btn) {
     const id = $('ab-est').value;
