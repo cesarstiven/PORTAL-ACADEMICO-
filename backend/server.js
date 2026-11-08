@@ -60,6 +60,8 @@ app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Imágenes y fuentes casi nunca cambian: el navegador las guarda 7 días (si se cambia un logo, se ve al vencer o con Ctrl+F5)
+// Chart.js (MIT) servido desde el propio portal, sin depender de un CDN
+app.use('/vendor/chart', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist'), { maxAge: '7d' }));
 for (const carpeta of ['img', 'fonts']) app.use(`/${carpeta}`, express.static(path.join(__dirname, 'public', carpeta), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -71,6 +73,18 @@ const nuevaReferencia = (usuarioId) => `CEP-${Date.now()}-${usuarioId}-${crypto.
 // la huella deja de coincidir y todas las sesiones anteriores se cierran al instante.
 const huellaClave = (hash) => crypto.createHash('sha256').update(String(hash)).digest('base64url').slice(0, 16);
 
+// Fecha de hoy en Colombia (la base corre en UTC)
+const HOY_SQL = "(NOW() AT TIME ZONE 'America/Bogota')::date";
+const MSG_NO_VIGENTE = 'Tu acceso al portal de CEPDECO no está vigente. Comunícate con Secretaría Académica.';
+// Vigencia de la cuenta: si la fecha ya pasó, la cuenta pasa sola a INACTIVO_RETIRADO. u = { estado_cuenta, vencida }
+async function cuentaVigente(id, u) {
+    if (u.estado_cuenta === 'ACTIVO' && u.vencida) {
+        await db.query(`UPDATE usuarios SET estado_cuenta = 'INACTIVO_RETIRADO', motivo_estado = 'Vigencia vencida' WHERE id = $1`, [id]);
+        return false;
+    }
+    return u.estado_cuenta === 'ACTIVO';
+}
+
 async function auth(req, res, next) {
     const h = req.headers.authorization || '';
     const token = h.startsWith('Bearer ') ? h.slice(7) : null;
@@ -80,10 +94,13 @@ async function auth(req, res, next) {
     } catch {
         return res.status(401).json({ success: false, message: 'Sesión inválida o expirada' });
     }
-    const actual = (await db.query('SELECT password_hash FROM usuarios WHERE id = $1', [req.user.id])).rows[0];
+    const actual = (await db.query(
+        `SELECT password_hash, estado_cuenta, fecha_vencimiento_acceso < ${HOY_SQL} AS vencida FROM usuarios WHERE id = $1`, [req.user.id]
+    )).rows[0];
     if (!actual || req.user.hc !== huellaClave(actual.password_hash)) {
         return res.status(401).json({ success: false, message: 'Tu sesión se cerró porque la contraseña cambió. Inicia sesión de nuevo.' });
     }
+    if (!(await cuentaVigente(req.user.id, actual))) return res.status(403).json({ success: false, message: MSG_NO_VIGENTE, noVigente: true });
     // Sin aceptar los documentos legales solo se permite consultar la sesión y aceptarlos
     if (req.user.aceptarLegal && !['/api/auth/me', '/api/legal/aceptar'].includes(req.path)) {
         return res.status(403).json({ success: false, message: 'Debes aceptar los Términos de uso y la Política de Tratamiento de Datos para continuar' });
@@ -196,7 +213,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const result = await db.query(
-        `SELECT u.id, u.username, u.nombre_completo, u.email, u.password_hash, u.debe_cambiar_clave, r.nombre AS rol
+        `SELECT u.id, u.username, u.nombre_completo, u.email, u.password_hash, u.debe_cambiar_clave, r.nombre AS rol,
+                u.estado_cuenta, u.fecha_vencimiento_acceso < ${HOY_SQL} AS vencida
          FROM usuarios u JOIN roles r ON u.rol_id = r.id
          WHERE LOWER(u.username) = LOWER($1)`,
         [String(username).trim()]
@@ -224,6 +242,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!ok) return fallo();
 
     fallosLogin.delete(claveUsuario);
+    if (!(await cuentaVigente(user.id, user))) return res.status(403).json({ success: false, message: MSG_NO_VIGENTE });
     res.json({ success: true, ...firmarSesion({ ...user, acepto_legal: await aceptoLegal(user.id) }) });
 });
 
@@ -495,7 +514,8 @@ app.get('/api/admin/resumen', auth, rol('Administrador'), async (req, res) => {
 
 app.post('/api/admin/usuarios', auth, rol('Administrador'), async (req, res) => {
     const b = req.body || {};
-    const username = String(b.username ?? '').trim();
+    // Siempre en minúsculas: el login no distingue mayúsculas, así "Ana" y "ana" no pueden ser dos cuentas
+    const username = String(b.username ?? '').trim().toLowerCase();
     const password = String(b.password ?? '');
     if (!username || !password || !b.rol) return res.status(400).json({ success: false, message: 'Usuario, clave temporal y rol son obligatorios' });
     if (!RE_USUARIO.test(username)) return res.status(400).json({ success: false, message: 'El usuario solo admite letras, números, punto, guion y guion bajo (3 a 40)' });
@@ -504,6 +524,9 @@ app.post('/api/admin/usuarios', auth, rol('Administrador'), async (req, res) => 
     if (errores.length) return res.status(400).json({ success: false, message: errores.join('. ') });
     const r = await db.query('SELECT id FROM roles WHERE nombre = $1', [b.rol]);
     if (!r.rows.length) return res.status(400).json({ success: false, message: 'Rol inválido' });
+    if ((await db.query('SELECT 1 FROM usuarios WHERE LOWER(username) = $1', [username])).rowCount) {
+        return res.status(409).json({ success: false, message: 'Ese usuario ya existe (no se distinguen mayúsculas)' });
+    }
     try {
         const hash = await bcrypt.hash(password, 10);
         await db.query(
@@ -686,10 +709,10 @@ app.post('/api/admin/usuarios/lote', auth, rol('Administrador'), subirExcel, asy
                 id = (await cliente.query(
                     `INSERT INTO usuarios (username, password_hash, nombre_completo, email, tipo_documento, documento, telefono, rol_id, programa_id, debe_cambiar_clave)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE) RETURNING id`,
-                    [r.username, await bcrypt.hash(clave, 10), r.datos.nombre_completo, r.datos.email, r.datos.tipo_documento,
+                    [r.username.toLowerCase(), await bcrypt.hash(clave, 10), r.datos.nombre_completo, r.datos.email, r.datos.tipo_documento,
                      r.datos.documento, r.datos.telefono, r.rolId, r.rolNombre === 'Estudiante' ? r.programa?.id || null : null]
                 )).rows[0].id;
-                creados.push({ username: r.username, nombre: r.datos.nombre_completo, rol: r.rolNombre, clave_generada: r.clave ? null : clave });
+                creados.push({ username: r.username.toLowerCase(), nombre: r.datos.nombre_completo, rol: r.rolNombre, clave_generada: r.clave ? null : clave });
             } else {
                 await cliente.query(
                     `UPDATE usuarios SET nombre_completo = $2, email = $3, tipo_documento = $4, documento = $5, telefono = $6, programa_id = $7 WHERE id = $1`,
@@ -993,6 +1016,185 @@ app.post('/api/admin/pagos/manual', auth, rol('Administrador'), async (req, res)
         [nuevaReferencia(estudianteId), estudianteId, PRECIO_CERTIFICADO, `MANUAL-${req.user.username}`]
     );
     res.status(201).json({ success: true, message: 'Pago marcado como aprobado: el estudiante ya puede generar un certificado' });
+});
+
+// ---------- Gerencia: cartera de matrículas y vigencia de cuentas ----------
+// El Gerente solo consulta y controla la vigencia; los abonos los registran Secretaria y Administrador.
+
+// Cartera del periodo actual: UNA consulta. Saldo, días, estado de pago y alerta se calculan aquí (no se guardan).
+// Los KPIs, gráficas y filtros se arman en el navegador desde estas filas.
+app.get('/api/gerente/cartera', auth, rol('Gerente', 'Administrador', 'Secretaria'), async (req, res) => {
+    const periodo = periodoActual();
+    const r = await db.query(
+        `WITH hoy AS (SELECT ${HOY_SQL} AS d),
+         nota_matricula AS (
+             SELECT m.estudiante_id, m.id,
+                    SUM(c.nota * CASE c.corte WHEN 3 THEN 0.4 ELSE 0.3 END) / NULLIF(SUM(CASE c.corte WHEN 3 THEN 0.4 ELSE 0.3 END), 0) AS promedio,
+                    MAX(c.nota) FILTER (WHERE c.corte = 1) AS c1,
+                    MAX(c.nota) FILTER (WHERE c.corte = 2) AS c2,
+                    MAX(c.nota) FILTER (WHERE c.corte = 3) AS c3
+             FROM matriculas m JOIN calificaciones c ON c.matricula_id = m.id
+             WHERE m.periodo = $1
+             GROUP BY m.estudiante_id, m.id
+         ),
+         notas_est AS (
+             SELECT estudiante_id, ROUND(AVG(promedio), 2) AS promedio,
+                    ROUND(AVG(c1), 2) AS c1, ROUND(AVG(c2), 2) AS c2, ROUND(AVG(c3), 2) AS c3
+             FROM nota_matricula GROUP BY estudiante_id
+         ),
+         pagos AS (SELECT cartera_id, SUM(monto) AS pagado, COUNT(*) AS abonos FROM abonos_matricula GROUP BY cartera_id),
+         cartera AS (
+             SELECT cm.id, cm.estudiante_id, cm.valor_total, cm.fecha_limite_pago,
+                    COALESCE(p.pagado, 0) AS pagado, COALESCE(p.abonos, 0) AS abonos,
+                    cm.valor_total - COALESCE(p.pagado, 0) AS saldo,
+                    cm.fecha_limite_pago - (SELECT d FROM hoy) AS dias
+             FROM cartera_matriculas cm LEFT JOIN pagos p ON p.cartera_id = cm.id
+             WHERE cm.periodo = $1
+         )
+         SELECT u.id, u.nombre_completo AS nombre, u.tipo_documento, u.documento, u.telefono, u.municipio, u.jornada,
+                u.estado_academico, pr.nombre AS programa,
+                ca.id AS cartera_id, ca.valor_total, ca.pagado, ca.saldo, ca.abonos, ca.fecha_limite_pago::text AS fecha_limite_pago, ca.dias,
+                CASE WHEN ca.id IS NULL THEN NULL
+                     WHEN ca.saldo <= 0 THEN 'PAZ_Y_SALVO'
+                     WHEN ca.dias < 0 THEN 'PLAZO_VENCIDO'
+                     WHEN ca.dias <= 7 THEN 'POR_VENCER'
+                     ELSE 'ABONO_PARCIAL' END AS estado_pago,
+                n.promedio, n.c1, n.c2, n.c3,
+                (COALESCE(n.promedio < $2, FALSE) OR (ca.saldo > 0 AND ca.dias < 0)) AS alerta
+         FROM usuarios u
+         JOIN roles r ON r.id = u.rol_id AND r.nombre = 'Estudiante'
+         LEFT JOIN programas pr ON pr.id = u.programa_id
+         LEFT JOIN cartera ca ON ca.estudiante_id = u.id
+         LEFT JOIN notas_est n ON n.estudiante_id = u.id
+         ORDER BY u.nombre_completo`,
+        [periodo, NOTA_MINIMA]
+    );
+    const n = (v) => (v === null ? null : Number(v));
+    res.json({
+        success: true, periodo, notaMinima: NOTA_MINIMA,
+        filas: r.rows.map((f) => ({ ...f, valor_total: n(f.valor_total), pagado: n(f.pagado), saldo: n(f.saldo), abonos: n(f.abonos), promedio: n(f.promedio), c1: n(f.c1), c2: n(f.c2), c3: n(f.c3) }))
+    });
+});
+
+// Secretaria / Admin: registrar (o corregir) el valor y la fecha límite de la matrícula del periodo
+app.post('/api/cartera', auth, rol('Secretaria', 'Administrador'), async (req, res) => {
+    const b = req.body || {};
+    const estudianteId = parseInt(b.estudiante_id, 10);
+    const valor = Number(b.valor_total);
+    const fecha = String(b.fecha_limite_pago || '');
+    if (!Number.isInteger(estudianteId)) throw httpError(400, 'Elige un estudiante');
+    if (!Number.isFinite(valor) || valor <= 0 || valor > 100000000) throw httpError(400, 'El valor de la matrícula debe ser mayor que 0');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || isNaN(Date.parse(fecha))) throw httpError(400, 'La fecha límite no es válida');
+    const est = await db.query(`SELECT 1 FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1 AND r.nombre = 'Estudiante'`, [estudianteId]);
+    if (!est.rowCount) throw httpError(400, 'Ese usuario no es un estudiante');
+    const periodo = periodoActual();
+    const pagado = Number((await db.query(
+        `SELECT COALESCE(SUM(a.monto), 0) AS s FROM abonos_matricula a JOIN cartera_matriculas cm ON cm.id = a.cartera_id
+         WHERE cm.estudiante_id = $1 AND cm.periodo = $2`, [estudianteId, periodo]
+    )).rows[0].s);
+    if (valor < pagado) throw httpError(400, `El valor no puede ser menor a lo que ya pagó (${pagado.toLocaleString('es-CO')})`);
+    await db.query(
+        `INSERT INTO cartera_matriculas (estudiante_id, periodo, valor_total, fecha_limite_pago) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (estudiante_id, periodo) DO UPDATE SET valor_total = EXCLUDED.valor_total, fecha_limite_pago = EXCLUDED.fecha_limite_pago`,
+        [estudianteId, periodo, valor, fecha]
+    );
+    res.json({ success: true, message: `Matrícula ${periodo} registrada` });
+});
+
+// Secretaria / Admin: registrar un abono. Nunca puede pasar del saldo pendiente.
+app.post('/api/cartera/:id/abonos', auth, rol('Secretaria', 'Administrador'), async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const monto = Math.round(Number((req.body || {}).monto) * 100) / 100;
+    const nota = String((req.body || {}).nota || '').trim().slice(0, 120) || null;
+    if (!Number.isInteger(id)) throw httpError(400, 'Matrícula inválida');
+    if (!Number.isFinite(monto) || monto <= 0) throw httpError(400, 'El abono debe ser mayor que 0');
+    const cli = await db.pool.connect();
+    try {
+        await cli.query('BEGIN');
+        const cm = (await cli.query('SELECT valor_total FROM cartera_matriculas WHERE id = $1 FOR UPDATE', [id])).rows[0];
+        if (!cm) throw httpError(404, 'No se encontró esa matrícula');
+        const pagado = Number((await cli.query('SELECT COALESCE(SUM(monto), 0) AS s FROM abonos_matricula WHERE cartera_id = $1', [id])).rows[0].s);
+        const saldo = Number(cm.valor_total) - pagado;
+        if (monto > saldo) throw httpError(400, `El abono supera el saldo pendiente (${saldo.toLocaleString('es-CO')})`);
+        await cli.query('INSERT INTO abonos_matricula (cartera_id, monto, nota, registrado_por) VALUES ($1, $2, $3, $4)', [id, monto, nota, req.user.id]);
+        await cli.query('COMMIT');
+        res.json({ success: true, message: monto === saldo ? 'Abono registrado: queda a Paz y Salvo' : 'Abono registrado', saldo: saldo - monto });
+    } catch (e) {
+        await cli.query('ROLLBACK');
+        throw e;
+    } finally {
+        cli.release();
+    }
+});
+
+// Vigencia de cuentas: una consulta. "Por vencer" (<= 15 días) se calcula.
+app.get('/api/gerente/cuentas', auth, rol('Gerente', 'Administrador'), async (req, res) => {
+    const r = await db.query(
+        `SELECT u.id, u.nombre_completo AS nombre, u.tipo_documento, u.documento, r.nombre AS rol,
+                COALESCE(pr.nombre, (SELECT string_agg(a.nombre, ', ' ORDER BY a.nombre) FROM asignaturas a WHERE a.docente_id = u.id)) AS detalle,
+                u.estado_cuenta, u.fecha_vencimiento_acceso::text AS fecha_vencimiento_acceso, u.motivo_estado,
+                u.fecha_vencimiento_acceso - ${HOY_SQL} AS dias,
+                CASE WHEN u.estado_cuenta <> 'ACTIVO' OR u.fecha_vencimiento_acceso < ${HOY_SQL} THEN 'INACTIVO_RETIRADO'
+                     WHEN u.fecha_vencimiento_acceso - ${HOY_SQL} <= 15 THEN 'POR_VENCER'
+                     ELSE 'ACTIVO' END AS estado_vista
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id LEFT JOIN programas pr ON pr.id = u.programa_id
+         ORDER BY r.nombre, u.nombre_completo`
+    );
+    res.json({ success: true, yo: req.user.id, cuentas: r.rows });
+});
+
+// El Gerente (o Admin) no puede cambiar su propia cuenta ni la de un Administrador
+async function cuentaEditable(req, idParam) {
+    const id = parseInt(idParam, 10);
+    if (!Number.isInteger(id)) throw httpError(400, 'Cuenta inválida');
+    if (id === req.user.id) throw httpError(403, 'No puedes cambiar el estado de tu propia cuenta');
+    const u = (await db.query(
+        `SELECT u.id, u.fecha_vencimiento_acceso, r.nombre AS rol, u.fecha_vencimiento_acceso < ${HOY_SQL} AS vencida
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1`, [id]
+    )).rows[0];
+    if (!u) throw httpError(404, 'No se encontró la cuenta');
+    if (u.rol === 'Administrador') throw httpError(403, 'Las cuentas de Administrador no se pueden cambiar desde aquí');
+    return u;
+}
+const MOTIVOS_INACTIVO = ['Fin de contrato docente', 'Semestre finalizado', 'Retiro voluntario', 'Graduado', 'Otro'];
+
+app.put('/api/gerente/cuentas/:id/estado', auth, rol('Gerente', 'Administrador'), async (req, res) => {
+    const u = await cuentaEditable(req, req.params.id);
+    const estado = String((req.body || {}).estado || '');
+    if (estado === 'INACTIVO_RETIRADO') {
+        const motivo = String((req.body || {}).motivo || '');
+        if (!MOTIVOS_INACTIVO.includes(motivo)) throw httpError(400, 'Elige el motivo');
+        await db.query(`UPDATE usuarios SET estado_cuenta = 'INACTIVO_RETIRADO', motivo_estado = $2 WHERE id = $1`, [u.id, motivo]);
+        return res.json({ success: true, message: 'Cuenta pasada a Inactivo / Ya no continúa' });
+    }
+    if (estado !== 'ACTIVO') throw httpError(400, 'Estado inválido');
+    // Si su fecha ya pasó, se le da 1 mes desde hoy (si no, volvería a quedar inactiva al instante)
+    await db.query(
+        `UPDATE usuarios SET estado_cuenta = 'ACTIVO', motivo_estado = 'Periodo vigente',
+                fecha_vencimiento_acceso = CASE WHEN fecha_vencimiento_acceso < ${HOY_SQL} THEN ${HOY_SQL} + INTERVAL '1 month' ELSE fecha_vencimiento_acceso END
+         WHERE id = $1`, [u.id]
+    );
+    res.json({ success: true, message: u.vencida ? 'Cuenta activada por 1 mes desde hoy' : 'Cuenta activada' });
+});
+
+// Renovar vigencia: +1 mes, +1 semestre (6 meses) o fecha exacta. Desde la fecha actual si aún no vence, si no desde hoy.
+app.put('/api/gerente/cuentas/:id/vigencia', auth, rol('Gerente', 'Administrador'), async (req, res) => {
+    const u = await cuentaEditable(req, req.params.id);
+    const v = String((req.body || {}).vigencia || '');
+    const base = `GREATEST(COALESCE(fecha_vencimiento_acceso, ${HOY_SQL}), ${HOY_SQL})`;
+    let expr, params = [u.id];
+    if (v === '+1m') expr = `${base} + INTERVAL '1 month'`;
+    else if (v === '+6m') expr = `${base} + INTERVAL '6 months'`;
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v))) {
+        const ok = (await db.query(`SELECT $1::date >= ${HOY_SQL} AS ok`, [v])).rows[0].ok;
+        if (!ok) throw httpError(400, 'La fecha no puede ser anterior a hoy');
+        expr = '$2::date'; params.push(v);
+    } else throw httpError(400, 'Vigencia inválida');
+    const r = await db.query(
+        `UPDATE usuarios SET fecha_vencimiento_acceso = ${expr}, estado_cuenta = 'ACTIVO', motivo_estado = 'Periodo vigente'
+         WHERE id = $1 RETURNING fecha_vencimiento_acceso::text AS fecha_vencimiento_acceso`, params
+    );
+    res.json({ success: true, message: 'Vigencia renovada', fecha: r.rows[0].fecha_vencimiento_acceso });
 });
 
 // ---------- Pagos (ePayco Sandbox) ----------

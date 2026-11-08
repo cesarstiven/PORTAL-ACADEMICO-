@@ -118,6 +118,59 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS documento VARCHAR(20);
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_documento_unico ON usuarios (documento) WHERE documento IS NOT NULL;
 
+-- ---------- Gerencia: roles, datos para análisis, vigencia de cuentas y cartera de matrículas ----------
+-- Gerente: solo consulta (cartera, rendimiento) y controla la vigencia de cuentas. Secretaria: registra abonos de matrícula.
+INSERT INTO roles (nombre) VALUES ('Gerente'), ('Secretaria') ON CONFLICT DO NOTHING;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS municipio VARCHAR(40);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS jornada VARCHAR(10);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado_academico VARCHAR(20) NOT NULL DEFAULT 'ACTIVO';
+-- Vigencia: un único estado guardado (ACTIVO / INACTIVO_RETIRADO) + la fecha. "Por vencer" se calcula, no se guarda.
+-- fecha_vencimiento_acceso NULL = sin vencimiento.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS estado_cuenta VARCHAR(20) NOT NULL DEFAULT 'ACTIVO';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_vencimiento_acceso DATE;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS motivo_estado VARCHAR(80) NOT NULL DEFAULT 'Periodo vigente';
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_municipio_valido') THEN
+        ALTER TABLE usuarios ADD CONSTRAINT usuarios_municipio_valido
+            CHECK (municipio IS NULL OR municipio IN ('Valledupar', 'Agustín Codazzi', 'La Paz', 'San Diego', 'Manaure', 'Becerril'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_jornada_valida') THEN
+        ALTER TABLE usuarios ADD CONSTRAINT usuarios_jornada_valida
+            CHECK (jornada IS NULL OR jornada IN ('Mañana', 'Tarde', 'Sabatino', 'Nocturno'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_estado_academico_valido') THEN
+        ALTER TABLE usuarios ADD CONSTRAINT usuarios_estado_academico_valido
+            CHECK (estado_academico IN ('ACTIVO', 'RETIRADO_DESERTOR', 'GRADUADO'));
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'usuarios_estado_cuenta_valido') THEN
+        ALTER TABLE usuarios ADD CONSTRAINT usuarios_estado_cuenta_valido
+            CHECK (estado_cuenta IN ('ACTIVO', 'INACTIVO_RETIRADO'));
+    END IF;
+END $$;
+-- Matrícula del periodo: valor y fecha límite. Lo pagado sale de la suma de abonos (no se guarda dos veces);
+-- saldo, días y estado de pago se calculan en la consulta.
+CREATE TABLE IF NOT EXISTS cartera_matriculas (
+    id SERIAL PRIMARY KEY,
+    estudiante_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    periodo VARCHAR(7) NOT NULL CHECK (periodo ~ '^[0-9]{4}-[AB]$'),
+    valor_total NUMERIC(12,2) NOT NULL CHECK (valor_total > 0),
+    fecha_limite_pago DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (estudiante_id, periodo)
+);
+-- Cada abono queda registrado con quién lo hizo (trazabilidad). Solo Secretaria y Administrador los crean.
+CREATE TABLE IF NOT EXISTS abonos_matricula (
+    id SERIAL PRIMARY KEY,
+    cartera_id INT NOT NULL REFERENCES cartera_matriculas(id) ON DELETE CASCADE,
+    monto NUMERIC(12,2) NOT NULL CHECK (monto > 0),
+    fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+    nota VARCHAR(120),
+    registrado_por INT REFERENCES usuarios(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS abonos_cartera_idx ON abonos_matricula (cartera_id);
+
 -- ---------- Seguridad: cerrar la API pública de Supabase ----------
 -- El portal entra solo por el servidor (rol postgres, dueño de las tablas, que no se ve afectado por RLS).
 -- Con RLS activo y SIN políticas, los roles públicos de Supabase (anon / authenticated) no pueden leer ni escribir nada.

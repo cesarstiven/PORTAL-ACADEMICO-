@@ -39,11 +39,12 @@
             <table>
                 <thead><tr><th>Tipo de dato</th><th>Ejemplos</th></tr></thead>
                 <tbody>
-                    <tr><td>Identificación y contacto</td><td>Nombre completo, tipo y número de documento de identidad, teléfono, usuario del portal y correo electrónico</td></tr>
-                    <tr><td>Datos académicos</td><td>Programa técnico laboral, asignaturas matriculadas, periodo y calificaciones por corte</td></tr>
+                    <tr><td>Identificación y contacto</td><td>Nombre completo, tipo y número de documento de identidad, teléfono celular, municipio de origen, usuario del portal y correo electrónico</td></tr>
+                    <tr><td>Datos académicos</td><td>Programa técnico laboral, jornada, asignaturas matriculadas, periodo, calificaciones por corte y estado académico (activo, retirado o graduado)</td></tr>
                     <tr><td>Datos de pagos</td><td>Referencia, valor, fecha y estado del pago del certificado. <strong>El portal no recibe ni guarda números de tarjeta ni claves bancarias</strong>: esos datos los maneja directamente la pasarela de pagos.</td></tr>
+                    <tr><td>Matrícula y abonos</td><td>Valor de la matrícula del periodo, fecha límite de pago, abonos entregados (valor, fecha y medio) y saldo pendiente</td></tr>
                     <tr><td>Certificados</td><td>Código de verificación, tipo de documento y fecha de emisión</td></tr>
-                    <tr><td>Datos de la cuenta</td><td>Contraseña, guardada cifrada (nadie puede leerla, ni siquiera CEPDECO) y el rol en el portal</td></tr>
+                    <tr><td>Datos de la cuenta</td><td>Contraseña, guardada cifrada (nadie puede leerla, ni siquiera CEPDECO), el rol en el portal y la vigencia de la cuenta (hasta qué fecha está activa y el motivo si ya no continúa)</td></tr>
                     <tr><td>Datos técnicos</td><td>Dirección IP y fecha de acceso que registran los servidores, por seguridad</td></tr>
                 </tbody>
             </table>
@@ -55,7 +56,9 @@
             <li>Gestionar tu vida académica: matrículas, calificaciones e historia académica.</li>
             <li>Expedir certificados y permitir que terceros verifiquen su autenticidad con el código QR.</li>
             <li>Procesar los pagos de los trámites y llevar el registro contable.</li>
-            <li>Comunicarnos contigo sobre tu proceso académico y los servicios del portal.</li>
+            <li>Comunicarnos contigo sobre tu proceso académico y los servicios del portal, incluidos recordatorios del saldo de tu matrícula.</li>
+            <li>Llevar el control de la cartera de matrículas y analizar, con cifras agregadas, el rendimiento académico y la permanencia de los estudiantes para mejorar el servicio.</li>
+            <li>Controlar hasta cuándo está vigente el acceso de estudiantes, docentes y personal administrativo al portal.</li>
             <li>Proteger la seguridad del portal y de las cuentas.</li>
             <li>Cumplir obligaciones legales y requerimientos de autoridades competentes.</li>
         </ol>
@@ -86,12 +89,16 @@
         <h2>6. Quién puede ver y tratar tus datos</h2>
         <p><strong>Dentro de CEPDECO:</strong></p>
         <ul>
-            <li><strong>Personal administrativo:</strong> son quienes más manejan los datos. Crean las cuentas, hacen las matrículas, registran pagos y atienden las solicitudes.</li>
+            <li><strong>Personal administrativo y Secretaría:</strong> son quienes más manejan los datos. Crean las cuentas, hacen las matrículas, registran pagos y abonos de matrícula y atienden las solicitudes.</li>
+            <li><strong>Gerencia:</strong> consulta, sin poder modificarlos, el estado de pago de las matrículas, las calificaciones y la permanencia de los estudiantes, para tomar decisiones institucionales. También controla la vigencia de las cuentas de estudiantes, docentes y personal administrativo.</li>
             <li><strong>Docentes:</strong> solo ven el nombre, el número de documento y las calificaciones de los estudiantes de sus propias asignaturas, para identificarlos al registrar notas.</li>
             <li><strong>Tú:</strong> solo ves tus propios datos, notas, pagos y certificados.</li>
         </ul>
         <p><strong>Planillas de Excel:</strong> los docentes y el personal administrativo pueden descargar planillas con datos de estudiantes
             para registrar notas o crear cuentas. Quien las descarga debe guardarlas en un lugar seguro, no compartirlas y borrarlas cuando ya no las necesite.</p>
+        <p><strong>Recordatorios por WhatsApp:</strong> si tienes un saldo pendiente en tu matrícula, la Secretaría o la Gerencia pueden enviarte
+            un recordatorio cordial por WhatsApp al celular que registraste, con tu nombre, tu programa, el saldo y la fecha límite. El mensaje se envía
+            desde la cuenta de WhatsApp de CEPDECO; WhatsApp (Meta) trata ese mensaje según sus propias condiciones. Si prefieres no recibirlos, escríbenos al correo de la sección 5.</p>
         <p><strong>Equipo de desarrollo del portal:</strong> el portal lo construye y mantiene un equipo de estudiantes de la Universidad Nacional de Colombia,
             Sede La Paz, por encargo de CEPDECO. Pueden acceder a los datos solo para construir, probar, corregir y dar soporte al portal,
             con el deber de mantenerlos en reserva. No pueden usarlos para otro fin ni compartirlos con nadie.</p>
@@ -103,6 +110,7 @@
                     <tr><td>Supabase</td><td>Base de datos del portal</td><td>Canadá</td></tr>
                     <tr><td>Render</td><td>Servidor donde funciona el portal</td><td>Estados Unidos</td></tr>
                     <tr><td>ePayco</td><td>Pasarela de pagos (tarjeta, PSE y otros medios)</td><td>Colombia</td></tr>
+                    <tr><td>WhatsApp (Meta)</td><td>Recordatorios del saldo de matrícula, solo si tienes saldo pendiente</td><td>Estados Unidos y otros países</td></tr>
                 </tbody>
             </table>
         </div>

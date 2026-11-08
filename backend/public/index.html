@@ -812,6 +812,37 @@
         .status-failed { background: var(--error-fondo); color: var(--error-tinta); }
         .status-none { background: var(--fondo); color: var(--tinta-3); }
 
+        /* --- Gerencia: cartera y vigencia (azul institucional, gris, esmeralda, ámbar, coral suave) --- */
+        :root { --esmeralda: #0f7b5f; --esmeralda-fondo: #e3f3ee; --ambar: #8a5a00; --ambar-fondo: #fcf1d9; --coral: #a8473b; --coral-fondo: #fbe9e5; --gris-fondo: #eef0f3; }
+        .filtros-ger { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip { min-height: 32px; padding: 4px 12px; border: 1px solid #c5cfe3; border-radius: 999px; background: var(--superficie); color: var(--tinta-2); font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+        .chip[aria-pressed="true"] { background: var(--azul); border-color: var(--azul); color: #fff; }
+        .filtros-ger .campo { flex: 1 1 140px; }
+        .check-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: 0.875rem; font-weight: 600; color: var(--tinta-2); }
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+        .kpi { padding: 16px; border: 1px solid var(--linea); border-radius: 14px; background: var(--superficie); }
+        .kpi small { display: block; color: var(--tinta-3); font-size: 0.8125rem; font-weight: 600; }
+        .kpi strong { display: block; margin-top: 4px; font-size: 1.375rem; color: var(--azul-oscuro); font-variant-numeric: tabular-nums; }
+        .kpi span { display: block; margin-top: 2px; color: var(--tinta-3); font-size: 0.8125rem; }
+        .graficas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 12px; }
+        .grafica { padding: 16px; border: 1px solid var(--linea); border-radius: 14px; background: var(--superficie); }
+        .grafica h3 { font-size: 0.9375rem; margin-bottom: 8px; color: var(--tinta-2); }
+        .grafica .lienzo { position: relative; height: 260px; }
+        .est-pago { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
+        .est-PAZ_Y_SALVO, .est-ACTIVO { background: var(--esmeralda-fondo); color: var(--esmeralda); }
+        .est-ABONO_PARCIAL { background: var(--azul-tinte); color: var(--azul); }
+        .est-POR_VENCER { background: var(--ambar-fondo); color: var(--ambar); }
+        .est-PLAZO_VENCIDO, .est-INACTIVO_RETIRADO { background: var(--coral-fondo); color: var(--coral); }
+        .progreso { width: 110px; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--gris-fondo); overflow: hidden; }
+        .progreso i { display: block; height: 100%; background: var(--esmeralda); }
+        .alerta-des { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: var(--coral-fondo); color: var(--coral); font-size: 0.75rem; font-weight: 600; }
+        .celda-sec { display: block; color: var(--tinta-3); font-size: 0.8125rem; }
+        .acciones-fila { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .acciones-fila input[type="date"] { min-height: 32px; padding: 2px 6px; font-size: 0.8125rem; width: auto; }
+        .aviso-grande { display: block; margin: 4px 0 12px; padding: 14px 16px; border-left: 4px solid var(--coral); border-radius: 8px; background: var(--coral-fondo); color: var(--coral); font-size: 1.125rem; font-weight: 700; line-height: 1.35; }
+        .resumen-abono { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+
         /* --- Aviso flotante: vidrio oscuro con barra luminosa del color del resultado --- */
         .toast {
             position: fixed;
@@ -1188,7 +1219,7 @@
                         <label class="campo"><span>Teléfono</span><input id="nu-tel" type="tel" autocomplete="off"></label>
                         <label class="campo"><span>Clave temporal (mín. 8)</span><input id="nu-pass" type="password" autocomplete="new-password"></label>
                         <label class="campo campo-corto"><span>Rol</span>
-                            <select id="nu-rol"><option>Estudiante</option><option>Docente</option><option>Administrador</option></select>
+                            <select id="nu-rol"><option>Estudiante</option><option>Docente</option><option>Secretaria</option><option>Gerente</option><option>Administrador</option></select>
                         </label>
                         <label class="campo campo-ancho"><span>Programa (solo estudiantes)</span><select id="nu-programa"></select></label>
                         <button class="btn btn-primary" onclick="crearUsuario(this)">Crear usuario</button>
@@ -1387,6 +1418,95 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Gerencia: inteligencia institucional y control de pagos (solo consulta) -->
+            <div id="sec-ger-cartera" class="section-view">
+                <h2>Inteligencia institucional y cartera</h2>
+                <p class="section-subtitle" id="car-sub">Estado de pago de las matrículas y rendimiento académico del periodo.</p>
+                <div class="filtros-ger" role="group" aria-label="Filtros">
+                    <div class="chips" id="car-chips">
+                        <button type="button" class="chip" data-estado="" aria-pressed="true">Todos</button>
+                        <button type="button" class="chip" data-estado="PAZ_Y_SALVO" aria-pressed="false">Paz y Salvo</button>
+                        <button type="button" class="chip" data-estado="ABONO_PARCIAL" aria-pressed="false">Abono Parcial</button>
+                        <button type="button" class="chip" data-estado="POR_VENCER" aria-pressed="false">Por Vencer (≤ 7 días)</button>
+                        <button type="button" class="chip" data-estado="PLAZO_VENCIDO" aria-pressed="false">Plazo Vencido</button>
+                    </div>
+                </div>
+                <div class="filtros-ger">
+                    <label class="campo"><span>Programa</span><select id="car-programa" onchange="renderCartera()"><option value="">Todos</option></select></label>
+                    <label class="campo"><span>Jornada</span><select id="car-jornada" onchange="renderCartera()"><option value="">Todas</option></select></label>
+                    <label class="campo"><span>Municipio de origen</span><select id="car-municipio" onchange="renderCartera()"><option value="">Todos</option></select></label>
+                    <label class="campo"><span>Buscar</span><input id="car-buscar" type="search" placeholder="Nombre o documento" autocomplete="off" oninput="renderCartera()"></label>
+                    <label class="check-chip"><input type="checkbox" id="car-alerta" onchange="renderCartera()"> En alerta de deserción</label>
+                </div>
+                <div class="kpis" id="car-kpis" aria-live="polite"></div>
+                <div class="graficas">
+                    <figure class="grafica"><h3>Estado de matrículas</h3><div class="lienzo"><canvas id="g-estados" role="img" aria-label="Gráfica de estado de matrículas"></canvas></div></figure>
+                    <figure class="grafica"><h3>Por municipio de origen</h3><div class="lienzo"><canvas id="g-municipios" role="img" aria-label="Gráfica por municipio"></canvas></div></figure>
+                    <figure class="grafica">
+                        <h3>Rendimiento y deserción por
+                            <select id="car-agrupar" aria-label="Agrupar por" onchange="renderCartera()"><option value="programa">programa</option><option value="jornada">jornada</option></select>
+                        </h3>
+                        <div class="lienzo"><canvas id="g-grupos" role="img" aria-label="Gráfica de rendimiento y deserción"></canvas></div>
+                    </figure>
+                    <figure class="grafica"><h3>Pagado y por pagar, por programa</h3><div class="lienzo"><canvas id="g-dinero" role="img" aria-label="Gráfica de dinero pagado y por pagar"></canvas></div></figure>
+                </div>
+                <div class="form-row" style="margin-top:20px">
+                    <p id="car-conteo" class="texto-sec" aria-live="polite" style="flex:1"></p>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="exportarCartera()">Exportar vista filtrada (Excel/CSV)</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Estudiante</th><th>Programa y jornada</th><th>Estado de matrícula</th><th>Progreso de pago</th><th class="num">Falta por pagar</th><th>Fecha límite de pago</th><th class="num">Promedio acumulado</th><th><span class="sr-only">Acción</span></th></tr></thead>
+                        <tbody id="car-tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gerencia: vigencia de cuentas y continuidad -->
+            <div id="sec-ger-cuentas" class="section-view">
+                <h2>Vigencia de cuentas y continuidad</h2>
+                <p class="section-subtitle">Quién sigue activo en CEPDECO y hasta cuándo. Una cuenta vencida o inactiva no puede entrar al portal. Las cuentas de Administrador y la tuya no se cambian desde aquí.</p>
+                <div class="filtros-ger">
+                    <label class="campo"><span>Rol</span><select id="cu-rol" onchange="renderCuentas()"><option value="">Todos</option><option value="Docente">Docentes</option><option value="Estudiante">Estudiantes</option><option value="Administrativo">Administrativos</option></select></label>
+                    <label class="campo"><span>Estado</span><select id="cu-estado" onchange="renderCuentas()"><option value="">Todos</option><option value="ACTIVO">Activo</option><option value="POR_VENCER">Por vencer (≤ 15 días)</option><option value="INACTIVO_RETIRADO">Inactivo / Ya no continúa</option></select></label>
+                    <label class="campo"><span>Buscar</span><input id="cu-buscar" type="search" placeholder="Nombre o documento" autocomplete="off" oninput="renderCuentas()"></label>
+                </div>
+                <p id="cu-conteo" class="texto-sec" aria-live="polite" style="margin-top:12px"></p>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Nombre y documento</th><th>Rol</th><th>Programa o asignaturas</th><th>Estado de cuenta</th><th>Vence</th><th>Motivo</th><th>Acciones</th></tr></thead>
+                        <tbody id="cu-tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Secretaría / Admin: abonos de matrícula -->
+            <div id="sec-abonos" class="section-view">
+                <h2>Abonos de matrícula</h2>
+                <p class="section-subtitle" id="ab-sub">Registra el valor de la matrícula del periodo y los abonos que entrega cada estudiante. Cada abono queda guardado con tu nombre.</p>
+                <div class="form-row">
+                    <label class="campo"><span>Buscar estudiante</span><input id="ab-buscar" type="search" placeholder="Nombre o documento" autocomplete="off" oninput="filtrarAbonos()"></label>
+                    <label class="campo campo-ancho"><span>Estudiante</span><select id="ab-est" onchange="mostrarAbono()"></select></label>
+                </div>
+                <div class="resumen-abono kpis" id="ab-resumen"></div>
+                <section class="bloque">
+                    <h3>Matrícula del periodo</h3>
+                    <div class="form-row">
+                        <label class="campo"><span>Valor total (COP)</span><input id="ab-valor" type="number" min="1" step="1000" inputmode="numeric"></label>
+                        <label class="campo"><span>Fecha límite de pago</span><input id="ab-fecha" type="date"></label>
+                        <button type="button" class="btn btn-secondary" onclick="guardarMatricula(this)">Guardar matrícula</button>
+                    </div>
+                </section>
+                <section class="bloque">
+                    <h3>Registrar abono</h3>
+                    <div class="form-row">
+                        <label class="campo"><span>Monto del abono (COP)</span><input id="ab-monto" type="number" min="1" step="1000" inputmode="numeric"></label>
+                        <label class="campo campo-ancho"><span>Nota (opcional)</span><input id="ab-nota" maxlength="120" placeholder="Ej.: efectivo en secretaría, transferencia Nequi"></label>
+                        <button type="button" class="btn btn-primary" onclick="registrarAbono(this)">Registrar abono</button>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 </div>
@@ -1552,14 +1672,27 @@ const MENU = {
         { key: 'inicio', label: 'Inicio' },
         DATOS_PERSONALES,
         { grupo: 'Gestión académica', icono: 'academica', items: [['docente', 'Registrar notas'], ['adm-matriculas', 'Matrículas'], ['adm-cursos', 'Cursos y asignaturas']] },
-        { grupo: 'Administración', icono: 'admin', items: [['adm-usuarios', 'Usuarios'], ['adm-pagos', 'Pagos manuales']] }
+        { grupo: 'Administración', icono: 'admin', items: [['adm-usuarios', 'Usuarios'], ['adm-pagos', 'Pagos manuales'], ['abonos', 'Abonos de matrícula']] },
+        { grupo: 'Gerencia', icono: 'financiera', items: [['ger-cartera', 'Inteligencia y cartera'], ['ger-cuentas', 'Vigencia de cuentas']] }
+    ],
+    Gerente: [
+        { key: 'inicio', label: 'Inicio' },
+        DATOS_PERSONALES,
+        { grupo: 'Gerencia', icono: 'financiera', items: [['ger-cartera', 'Inteligencia y cartera'], ['ger-cuentas', 'Vigencia de cuentas']] }
+    ],
+    Secretaria: [
+        { key: 'inicio', label: 'Inicio' },
+        DATOS_PERSONALES,
+        { grupo: 'Secretaría académica', icono: 'financiera', items: [['abonos', 'Abonos de matrícula']] }
     ]
 };
 // Atajos que aparecen en el Inicio de cada rol: [sección, texto, ícono]
 const ACCESOS = {
     Estudiante: [['notas', 'Mis calificaciones', 'academica'], ['certificados', 'Generar certificado', 'tramites'], ['pagos', 'Pagar en línea', 'financiera']],
     Docente: [['docente', 'Registrar notas', 'academica'], ['datos', 'Mis datos', 'persona']],
-    Administrador: [['adm-matriculas', 'Matricular estudiante', 'academica'], ['adm-usuarios', 'Crear usuario', 'admin'], ['docente', 'Registrar notas', 'academica']]
+    Administrador: [['adm-matriculas', 'Matricular estudiante', 'academica'], ['adm-usuarios', 'Crear usuario', 'admin'], ['docente', 'Registrar notas', 'academica']],
+    Gerente: [['ger-cartera', 'Inteligencia y cartera', 'financiera'], ['ger-cuentas', 'Vigencia de cuentas', 'admin']],
+    Secretaria: [['abonos', 'Registrar abono de matrícula', 'financiera']]
 };
 
 function botonNav(key, label, conIcono) {
@@ -1659,7 +1792,8 @@ function entrar() {
 const LOADERS = {
     inicio: cargarInicio, datos: cargarDatos, notas: cargarNotas, historia: cargarHistoria, programa: cargarPrograma,
     docente: cargarDocente, certificados: cargarCertificados, pagos: cargarPagos, recibos: cargarPagos,
-    'adm-usuarios': cargarAdmin, 'adm-cursos': cargarAdmin, 'adm-matriculas': cargarAdmin, 'adm-pagos': cargarAdmin
+    'adm-usuarios': cargarAdmin, 'adm-cursos': cargarAdmin, 'adm-matriculas': cargarAdmin, 'adm-pagos': cargarAdmin,
+    'ger-cartera': cargarCartera, 'ger-cuentas': cargarCuentas, abonos: cargarAbonos
 };
 
 function irA(name) {
@@ -2227,6 +2361,290 @@ function filtrarEstudiantes(inputId, selectId, despues) {
     $(selectId).innerHTML = lista.length ? opt(lista, etiquetaEstudiante) : '<option value="">Ningún estudiante coincide con la búsqueda</option>';
     if (lista.some((u) => String(u.id) === prev)) $(selectId).value = prev;
     if (despues) despues();
+}
+
+// ---- Gerencia: cartera de matrículas (solo consulta) ----
+const COP = (n) => '$ ' + Math.round(Number(n) || 0).toLocaleString('es-CO');
+const fechaCorta = (s) => { if (!s) return '-'; const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const ESTADOS_PAGO = { PAZ_Y_SALVO: 'Paz y Salvo', ABONO_PARCIAL: 'Abono Parcial', POR_VENCER: 'Por Vencer', PLAZO_VENCIDO: 'Plazo Vencido' };
+const COLORES_PAGO = { PAZ_Y_SALVO: '#0f7b5f', ABONO_PARCIAL: '#1d3a8a', POR_VENCER: '#c99a2e', PLAZO_VENCIDO: '#d9776a' };
+const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+const promedio = (xs) => { const v = xs.filter((x) => x !== null && x !== undefined); return v.length ? Math.round((v.reduce((s, x) => s + x, 0) / v.length) * 100) / 100 : null; };
+const celular = (t) => { const d = String(t || '').replace(/\D/g, ''); const n = d.length === 12 && d.startsWith('57') ? d.slice(2) : d; return /^3\d{9}$/.test(n) ? n : null; };
+let carData = null;
+let carEstado = '';
+const graficas = {};
+
+// Chart.js (MIT) se carga solo cuando se abre la pestaña
+let chartCargando = null;
+function cargarChart() {
+    if (window.Chart) return Promise.resolve();
+    return (chartCargando ||= new Promise((ok, mal) => {
+        const s = document.createElement('script');
+        s.src = '/vendor/chart/chart.umd.min.js';
+        s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar el módulo de gráficas'));
+        document.head.appendChild(s);
+    }));
+}
+
+$('car-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    carEstado = b.dataset.estado;
+    $('car-chips').querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
+    renderCartera();
+});
+
+async function cargarCartera() {
+    const [d] = await Promise.all([api('/api/gerente/cartera'), cargarChart()]);
+    carData = d;
+    const filas = d.filas.filter((f) => f.cartera_id);
+    $('car-sub').textContent = `Estado de pago de las matrículas y rendimiento académico del periodo ${d.periodo}. Alerta de deserción: promedio menor a ${d.notaMinima} o plazo de pago vencido.`;
+    const llenar = (id, campo) => {
+        const prev = $(id).value;
+        const vals = [...new Set(filas.map((f) => f[campo]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+        $(id).innerHTML = $(id).options[0].outerHTML + vals.map((v) => `<option>${esc(v)}</option>`).join('');
+        if (vals.includes(prev)) $(id).value = prev;
+    };
+    llenar('car-programa', 'programa'); llenar('car-jornada', 'jornada'); llenar('car-municipio', 'municipio');
+    renderCartera();
+}
+
+function filasCartera() {
+    if (!carData) return [];
+    const q = sinTildes($('car-buscar').value).trim();
+    const qNum = q.replace(/\D/g, '');
+    const [prog, jor, mun, alerta] = [$('car-programa').value, $('car-jornada').value, $('car-municipio').value, $('car-alerta').checked];
+    return carData.filas.filter((f) => f.cartera_id &&
+        (!carEstado || f.estado_pago === carEstado) && (!prog || f.programa === prog) && (!jor || f.jornada === jor) &&
+        (!mun || f.municipio === mun) && (!alerta || f.alerta) &&
+        (!q || sinTildes(f.nombre).includes(q) || (qNum.length >= 3 && String(f.documento || '').includes(qNum))));
+}
+
+function etiquetaPlazo(f) {
+    if (f.saldo <= 0) return 'Al día';
+    if (f.dias > 0) return `Vence en ${f.dias} día${f.dias === 1 ? '' : 's'}`;
+    if (f.dias === 0) return 'Vence hoy';
+    return `Vencido hace ${-f.dias} día${f.dias === -1 ? '' : 's'}`;
+}
+
+function mensajeWhatsApp(f) {
+    return `Hola ${f.nombre}, te saluda la Secretaría Académica de CEPDECO. Te recordamos que tu matrícula del programa ` +
+        `Técnico Laboral en ${f.programa || 'tu programa'} tiene un saldo pendiente de ${COP(f.saldo)}, con fecha límite de pago ` +
+        `el ${fechaCorta(f.fecha_limite_pago)}. Puedes enviarnos por este medio el soporte de pago o escribirnos para acordar ` +
+        `la forma de pago. ¡Gracias por ser parte de CEPDECO!`;
+}
+
+function renderCartera() {
+    const filas = filasCartera();
+    const total = filas.reduce((s, f) => s + f.valor_total, 0);
+    const pagado = filas.reduce((s, f) => s + f.pagado, 0);
+    const saldo = filas.reduce((s, f) => s + f.saldo, 0);
+    const pagaron = filas.filter((f) => f.estado_pago === 'PAZ_Y_SALVO').length;
+    const semana = filas.filter((f) => f.estado_pago === 'POR_VENCER');
+    const retirados = filas.filter((f) => f.estado_academico === 'RETIRADO_DESERTOR').length;
+    const kpi = (t, v, sub) => `<div class="kpi"><small>${t}</small><strong>${v}</strong><span>${sub}</span></div>`;
+    $('car-kpis').innerHTML =
+        kpi('Recaudo efectivo vs. proyectado', `${pct(pagado, total)} %`, `${COP(pagado)} de ${COP(total)}`) +
+        kpi('Falta por cobrar', COP(saldo), 'Saldos pendientes') +
+        kpi('Ya pagaron / con saldo', `${pagaron} / ${filas.length - pagaron}`, 'Estudiantes') +
+        kpi('Vencen esta semana', String(semana.length), `${COP(semana.reduce((s, f) => s + f.saldo, 0))} en compromisos`) +
+        kpi('Tasa de deserción', `${pct(retirados, filas.length)} %`, `Promedio institucional ${fmt(promedio(filas.map((f) => f.promedio)))}`);
+    $('car-conteo').textContent = `${filas.length} estudiante${filas.length === 1 ? '' : 's'} en la vista`;
+    $('car-tabla').innerHTML = filas.length ? filas.map((f) => {
+        const avance = pct(f.pagado, f.valor_total);
+        const tel = celular(f.telefono);
+        const wa = f.saldo > 0 && tel
+            ? `<a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" href="https://wa.me/57${tel}?text=${encodeURIComponent(mensajeWhatsApp(f))}">Recordatorio WhatsApp</a>` : '';
+        return `<tr>
+            <td><strong>${esc(f.nombre)}</strong><span class="celda-sec">${esc(docTexto(f) || 'Sin documento')} · ${esc(f.municipio || 'Sin municipio')} · ${esc(f.telefono || 'Sin teléfono')}</span></td>
+            <td>${esc(f.programa || 'Sin programa')}<span class="celda-sec">${esc(f.jornada || 'Sin jornada')}</span></td>
+            <td><span class="est-pago est-${f.estado_pago}">${ESTADOS_PAGO[f.estado_pago]}</span></td>
+            <td>${COP(f.pagado)} / ${COP(f.valor_total)}<div class="progreso" role="img" aria-label="${avance} % pagado"><i style="width:${avance}%"></i></div></td>
+            <td class="num"><strong>${COP(f.saldo)}</strong></td>
+            <td>${fechaCorta(f.fecha_limite_pago)}<span class="celda-sec">${etiquetaPlazo(f)}</span></td>
+            <td class="num">${fmt(f.promedio)}${f.alerta ? '<span class="alerta-des">Alerta de deserción</span>' : ''}</td>
+            <td>${wa}</td></tr>`;
+    }).join('') : vacio(8, 'Ningún estudiante coincide con los filtros');
+    dibujarGraficas(filas);
+}
+
+function grafica(id, config) {
+    if (!window.Chart) return;
+    if (graficas[id]) graficas[id].destroy();
+    config.options = { responsive: true, maintainAspectRatio: false, animation: { duration: 300 }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }, ...config.options };
+    graficas[id] = new Chart($(id), config);
+}
+const agrupar = (filas, campo) => {
+    const g = new Map();
+    filas.forEach((f) => { const k = f[campo] || 'Sin dato'; if (!g.has(k)) g.set(k, []); g.get(k).push(f); });
+    return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+};
+const corto = (t) => t.replace(/^(Auxiliar (en )?|Asistente de )/, '').replace(' para la Primera Infancia', ' P. Infancia');
+
+function dibujarGraficas(filas) {
+    const estados = Object.keys(ESTADOS_PAGO);
+    grafica('g-estados', { type: 'doughnut', data: { labels: estados.map((e) => ESTADOS_PAGO[e]),
+        datasets: [{ data: estados.map((e) => filas.filter((f) => f.estado_pago === e).length), backgroundColor: estados.map((e) => COLORES_PAGO[e]), borderWidth: 2 }] } });
+
+    const mun = agrupar(filas, 'municipio');
+    grafica('g-municipios', { data: { labels: mun.map(([k]) => k), datasets: [
+        { type: 'bar', label: 'Promedio de notas', data: mun.map(([, l]) => promedio(l.map((f) => f.promedio))), backgroundColor: '#1d3a8a', yAxisID: 'y' },
+        { type: 'line', label: '% deserción', data: mun.map(([, l]) => pct(l.filter((f) => f.estado_academico === 'RETIRADO_DESERTOR').length, l.length)), borderColor: '#d9776a', backgroundColor: '#d9776a', yAxisID: 'y2' },
+        { type: 'line', label: '% paz y salvo', data: mun.map(([, l]) => pct(l.filter((f) => f.estado_pago === 'PAZ_Y_SALVO').length, l.length)), borderColor: '#0f7b5f', backgroundColor: '#0f7b5f', yAxisID: 'y2' }
+    ] }, options: { scales: { y: { min: 0, max: 5, title: { display: true, text: 'Promedio' } }, y2: { position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: '%' } } } } });
+
+    const campo = $('car-agrupar').value;
+    const gr = agrupar(filas, campo);
+    grafica('g-grupos', { data: { labels: gr.map(([k]) => (campo === 'programa' ? corto(k) : k)), datasets: [
+        { type: 'bar', label: 'Activos', data: gr.map(([, l]) => l.filter((f) => f.estado_academico !== 'RETIRADO_DESERTOR').length), backgroundColor: '#1d3a8a', yAxisID: 'y' },
+        { type: 'bar', label: 'Retirados', data: gr.map(([, l]) => l.filter((f) => f.estado_academico === 'RETIRADO_DESERTOR').length), backgroundColor: '#d9776a', yAxisID: 'y' },
+        { type: 'line', label: 'Corte 1 (30 %)', data: gr.map(([, l]) => promedio(l.map((f) => f.c1))), borderColor: '#6b7a90', backgroundColor: '#6b7a90', yAxisID: 'y2' },
+        { type: 'line', label: 'Corte 2 (30 %)', data: gr.map(([, l]) => promedio(l.map((f) => f.c2))), borderColor: '#c99a2e', backgroundColor: '#c99a2e', yAxisID: 'y2' },
+        { type: 'line', label: 'Corte 3 (40 %)', data: gr.map(([, l]) => promedio(l.map((f) => f.c3))), borderColor: '#0f7b5f', backgroundColor: '#0f7b5f', yAxisID: 'y2' }
+    ] }, options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'Estudiantes' } }, y2: { position: 'right', min: 0, max: 5, grid: { drawOnChartArea: false }, title: { display: true, text: 'Nota' } } } } });
+
+    const pr = agrupar(filas, 'programa');
+    grafica('g-dinero', { type: 'bar', data: { labels: pr.map(([k]) => corto(k)), datasets: [
+        { label: 'Ya pagado', data: pr.map(([, l]) => l.reduce((s, f) => s + f.pagado, 0)), backgroundColor: '#0f7b5f' },
+        { label: 'Falta por pagar', data: pr.map(([, l]) => l.reduce((s, f) => s + f.saldo, 0)), backgroundColor: '#d9776a' }
+    ] }, options: { indexAxis: 'y', scales: { x: { stacked: true, ticks: { callback: (v) => '$' + (v / 1e6).toLocaleString('es-CO') + ' M' } }, y: { stacked: true } },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${COP(c.raw)}` } } } } });
+}
+
+// CSV UTF-8 con BOM y ';' (abre bien en Excel); evita que un valor se interprete como fórmula
+function exportarCartera() {
+    const celda = (v) => { let t = String(v ?? ''); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
+    const cab = ['Estudiante', 'Documento', 'Municipio', 'Teléfono', 'Programa', 'Jornada', 'Estado de matrícula', 'Valor total', 'Pagado', 'Falta por pagar', 'Fecha límite', 'Plazo', 'Promedio', 'Alerta de deserción', 'Estado académico'];
+    const filas = filasCartera().map((f) => [f.nombre, docTexto(f), f.municipio, f.telefono, f.programa, f.jornada, ESTADOS_PAGO[f.estado_pago],
+        f.valor_total, f.pagado, f.saldo, f.fecha_limite_pago, etiquetaPlazo(f), f.promedio ?? '', f.alerta ? 'Sí' : 'No', f.estado_academico]);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + [cab, ...filas].map((f) => f.map(celda).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = `cartera-cepdeco-${carData.periodo}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---- Gerencia: vigencia de cuentas ----
+let cuData = null;
+const ESTADOS_CUENTA = { ACTIVO: 'Activo', POR_VENCER: 'Por vencer', INACTIVO_RETIRADO: 'Inactivo / Ya no continúa' };
+const MOTIVOS_INACTIVO = ['Fin de contrato docente', 'Semestre finalizado', 'Retiro voluntario', 'Graduado', 'Otro'];
+const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+async function cargarCuentas() {
+    cuData = await api('/api/gerente/cuentas');
+    renderCuentas();
+}
+
+function renderCuentas() {
+    if (!cuData) return;
+    const [rolF, estF] = [$('cu-rol').value, $('cu-estado').value];
+    const q = sinTildes($('cu-buscar').value).trim();
+    const qNum = q.replace(/\D/g, '');
+    const lista = cuData.cuentas.filter((c) =>
+        (!rolF || (rolF === 'Administrativo' ? !['Docente', 'Estudiante'].includes(c.rol) : c.rol === rolF)) &&
+        (!estF || c.estado_vista === estF) &&
+        (!q || sinTildes(c.nombre).includes(q) || (qNum.length >= 3 && String(c.documento || '').includes(qNum))));
+    $('cu-conteo').textContent = `${lista.length} cuenta${lista.length === 1 ? '' : 's'}`;
+    $('cu-tabla').innerHTML = lista.length ? lista.map((c) => {
+        const editable = c.id !== cuData.yo && c.rol !== 'Administrador';
+        const vence = !c.fecha_vencimiento_acceso ? 'Sin vencimiento'
+            : `${fechaCorta(c.fecha_vencimiento_acceso)}<span class="celda-sec">${c.dias >= 0 ? `Quedan ${c.dias} día${c.dias === 1 ? '' : 's'}` : `Venció hace ${-c.dias} día${c.dias === -1 ? '' : 's'}`}</span>`;
+        const acciones = !editable ? `<span class="celda-sec">${c.id === cuData.yo ? 'Tu cuenta' : 'Solo el Administrador'}</span>`
+            : `<div class="acciones-fila">
+                ${c.estado_vista === 'INACTIVO_RETIRADO'
+                    ? `<button type="button" class="btn btn-secondary btn-sm" onclick="activarCuenta(this, ${c.id})">Activar</button>`
+                    : `<button type="button" class="btn btn-secondary btn-sm" onclick="inactivarCuenta(this, ${c.id})">Pasar a inactivo</button>`}
+                <button type="button" class="btn btn-secondary btn-sm" onclick="renovar(this, ${c.id}, '+1m')">+1 Mes</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="renovar(this, ${c.id}, '+6m')">+1 Semestre</button>
+                <input type="date" min="${hoyISO()}" aria-label="Fecha exacta de vencimiento para ${esc(c.nombre)}" onchange="renovar(this, ${c.id}, this.value)">
+               </div>`;
+        return `<tr>
+            <td><strong>${esc(c.nombre)}</strong><span class="celda-sec">${esc(docTexto(c) || 'Sin documento')}</span></td>
+            <td>${esc(c.rol)}</td>
+            <td>${esc(c.detalle || '-')}</td>
+            <td><span class="est-pago est-${c.estado_vista}">${ESTADOS_CUENTA[c.estado_vista]}</span></td>
+            <td>${vence}</td>
+            <td>${esc(c.motivo_estado)}</td>
+            <td>${acciones}</td></tr>`;
+    }).join('') : vacio(7, 'Ninguna cuenta coincide con los filtros');
+}
+
+async function accionCuenta(btn, url, body) {
+    await conCarga(btn, async () => {
+        try { const r = await api(url, { method: 'PUT', body }); msg(r.message); await cargarCuentas(); }
+        catch (e) { msg(e.message, false); }
+    });
+}
+const activarCuenta = (btn, id) => accionCuenta(btn, `/api/gerente/cuentas/${id}/estado`, { estado: 'ACTIVO' });
+const renovar = (btn, id, vigencia) => vigencia && accionCuenta(btn, `/api/gerente/cuentas/${id}/vigencia`, { vigencia });
+
+async function inactivarCuenta(btn, id) {
+    const c = cuData.cuentas.find((x) => x.id === id);
+    const quien = c.rol === 'Docente' ? 'este profesor' : c.rol === 'Estudiante' ? 'este estudiante' : 'esta persona';
+    const grande = ['Docente', 'Estudiante'].includes(c.rol)
+        ? `<span class="aviso-grande">¿Seguro que deseas desactivar a ${quien}? ${esc(c.nombre)} ya no podrá entrar al portal de CEPDECO.</span>` : '';
+    const ok = await confirmar(`Pasar a inactivo: ${c.nombre}`,
+        `${grande}${esc(c.rol)} · ${esc(docTexto(c) || 'sin documento')}<br><br>
+         <label class="campo"><span>Motivo</span><select id="cf-motivo">${MOTIVOS_INACTIVO
+             .filter((m) => (m === 'Fin de contrato docente' ? c.rol === 'Docente' : m !== 'Graduado' || c.rol === 'Estudiante'))
+             .map((m) => `<option>${esc(m)}</option>`).join('')}</select></label>`,
+        'Sí, pasar a inactivo');
+    if (ok) accionCuenta(btn, `/api/gerente/cuentas/${id}/estado`, { estado: 'INACTIVO_RETIRADO', motivo: $('cf-motivo').value });
+}
+
+// ---- Secretaría / Admin: abonos de matrícula ----
+let abData = null;
+async function cargarAbonos() {
+    abData = await api('/api/gerente/cartera');
+    $('ab-sub').textContent = `Periodo ${abData.periodo}. Registra el valor de la matrícula y los abonos que entrega cada estudiante. Cada abono queda guardado con tu nombre.`;
+    filtrarAbonos();
+}
+function filtrarAbonos() {
+    const q = sinTildes($('ab-buscar').value).trim();
+    const qNum = q.replace(/\D/g, '');
+    const prev = $('ab-est').value;
+    const lista = abData.filas.filter((f) => !q || sinTildes(f.nombre).includes(q) || (qNum.length >= 3 && String(f.documento || '').includes(qNum)));
+    $('ab-est').innerHTML = lista.length ? lista.map((f) => `<option value="${f.id}">${esc(f.nombre)} · ${esc(docTexto(f) || 'sin documento')}</option>`).join('')
+        : '<option value="">Ningún estudiante coincide</option>';
+    if (lista.some((f) => String(f.id) === prev)) $('ab-est').value = prev;
+    mostrarAbono();
+}
+function mostrarAbono() {
+    const f = abData && abData.filas.find((x) => String(x.id) === $('ab-est').value);
+    const kpi = (t, v) => `<div class="kpi"><small>${t}</small><strong>${v}</strong></div>`;
+    $('ab-resumen').innerHTML = !f ? '' : !f.cartera_id ? kpi('Matrícula del periodo', 'Sin registrar')
+        : kpi('Valor total', COP(f.valor_total)) + kpi('Pagado', COP(f.pagado)) + kpi('Falta por pagar', COP(f.saldo)) +
+          kpi('Fecha límite', fechaCorta(f.fecha_limite_pago)) + `<div class="kpi"><small>Estado</small><strong><span class="est-pago est-${f.estado_pago}">${ESTADOS_PAGO[f.estado_pago]}</span></strong></div>`;
+    $('ab-valor').value = f && f.cartera_id ? f.valor_total : '';
+    $('ab-fecha').value = f && f.cartera_id ? f.fecha_limite_pago : '';
+}
+async function guardarMatricula(btn) {
+    const id = $('ab-est').value;
+    if (!id) return msg('Elige un estudiante', false);
+    await conCarga(btn, async () => {
+        try {
+            const r = await api('/api/cartera', { method: 'POST', body: { estudiante_id: id, valor_total: $('ab-valor').value, fecha_limite_pago: $('ab-fecha').value } });
+            msg(r.message); await cargarAbonos();
+        } catch (e) { msg(e.message, false); }
+    });
+}
+async function registrarAbono(btn) {
+    const f = abData.filas.find((x) => String(x.id) === $('ab-est').value);
+    if (!f) return msg('Elige un estudiante', false);
+    if (!f.cartera_id) return msg('Primero guarda la matrícula del periodo de este estudiante', false);
+    const monto = Number($('ab-monto').value);
+    if (!(monto > 0)) return msg('Escribe el monto del abono', false);
+    const ok = await confirmar('Confirmar abono',
+        `¿Registrar un abono de <strong>${COP(monto)}</strong> a <strong>${esc(f.nombre)}</strong> (${esc(docTexto(f) || 'sin documento')})?<br>
+         Saldo actual: ${COP(f.saldo)}. Quedará registrado a tu nombre.`, 'Sí, registrar abono');
+    if (!ok) return;
+    await conCarga(btn, async () => {
+        try {
+            const r = await api(`/api/cartera/${f.cartera_id}/abonos`, { method: 'POST', body: { monto, nota: $('ab-nota').value } });
+            msg(r.message); $('ab-monto').value = ''; $('ab-nota').value = ''; await cargarAbonos();
+        } catch (e) { msg(e.message, false); }
+    });
 }
 
 // ---- Confirmación con ventana propia (devuelve true si la persona acepta) ----
