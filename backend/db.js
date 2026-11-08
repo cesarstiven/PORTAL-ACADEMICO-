@@ -13,7 +13,10 @@ const pool = new pg.Pool({
     connectionString: url,
     ssl: esLocal ? false : { rejectUnauthorized: false },
     // Sin esto, si Supabase no responde (pausado, URL mala) la consulta se queda colgada para siempre
-    connectionTimeoutMillis: 10000
+    connectionTimeoutMillis: 10000,
+    // 20 conexiones en paralelo (por defecto son 10): con muchos usuarios a la vez las consultas no hacen fila.
+    // El pooler de Supabase (puerto 6543) admite muchas más, así que hay margen.
+    max: 20
 });
 pool.on('error', (e) => console.error('❌ Error en la conexión a la BD:', e.message));
 

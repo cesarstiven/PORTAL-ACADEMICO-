@@ -99,3 +99,48 @@ BEGIN
         ALTER TABLE matriculas ADD CONSTRAINT matriculas_periodo_formato CHECK (periodo ~ '^[0-9]{4}-[AB]$');
     END IF;
 END $$;
+
+-- Registro de aceptación de los documentos legales (Términos y Política de Tratamiento de Datos).
+-- Una fila por usuario y versión: al publicar una versión nueva, todos deben aceptarla otra vez.
+CREATE TABLE IF NOT EXISTS aceptaciones_legales (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    version VARCHAR(20) NOT NULL,
+    aceptado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ip VARCHAR(64),
+    user_agent VARCHAR(300),
+    UNIQUE (usuario_id, version)
+);
+
+-- Identificación y contacto de cada usuario (para buscarlo por cédula o teléfono). Todas opcionales.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS tipo_documento VARCHAR(5);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS documento VARCHAR(20);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_documento_unico ON usuarios (documento) WHERE documento IS NOT NULL;
+
+-- ---------- Seguridad: cerrar la API pública de Supabase ----------
+-- El portal entra solo por el servidor (rol postgres, dueño de las tablas, que no se ve afectado por RLS).
+-- Con RLS activo y SIN políticas, los roles públicos de Supabase (anon / authenticated) no pueden leer ni escribir nada.
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', t);
+    END LOOP;
+END $$;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon, authenticated;
+-- Tablas que se creen en el futuro tampoco quedan abiertas a esos roles
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
+
+-- ---------- Rendimiento: índices para las búsquedas más frecuentes ----------
+CREATE INDEX IF NOT EXISTS matriculas_asignatura_idx ON matriculas (asignatura_id);   -- estudiantes de una asignatura (docente)
+CREATE INDEX IF NOT EXISTS transacciones_usuario_idx ON transacciones (usuario_id);   -- pagos de un estudiante
+CREATE INDEX IF NOT EXISTS certificados_usuario_idx ON certificados (usuario_id);     -- certificados de un estudiante
+CREATE INDEX IF NOT EXISTS asignaturas_docente_idx ON asignaturas (docente_id);       -- asignaturas de un docente
+CREATE INDEX IF NOT EXISTS asignaturas_programa_idx ON asignaturas (programa_id);     -- asignaturas de un curso
+CREATE INDEX IF NOT EXISTS usuarios_programa_idx ON usuarios (programa_id);           -- estudiantes de un curso
+CREATE INDEX IF NOT EXISTS usuarios_username_lower_idx ON usuarios (LOWER(username)); -- login sin distinguir mayúsculas

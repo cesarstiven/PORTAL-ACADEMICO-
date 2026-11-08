@@ -16,9 +16,7 @@
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Pantalla de inicio de sesión del Portal Académico CEPDECO">
     <meta name="twitter:card" content="summary_large_image">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/fonts/fonts.css">
     <style>
         :root {
             /* Colores tomados del logo de CEPDECO */
@@ -50,6 +48,7 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; }
+        [hidden] { display: none !important; } /* que ningún estilo (p. ej. .btn) muestre algo oculto */
         body {
             font-family: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
             font-size: 1rem;
@@ -65,6 +64,10 @@
         p { text-wrap: pretty; }
         a { color: var(--azul); text-underline-offset: 3px; }
         :focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+        .saltar { position: absolute; left: 12px; top: -60px; z-index: 1000; background: var(--azul); color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+        .saltar:focus { top: 12px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+        #contenido:focus { outline: none; }
         svg.icono { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
         /* --- Barra institucional --- */
@@ -718,6 +721,28 @@
         .form-clave { display: flex; flex-direction: column; gap: 16px; max-width: 360px; }
         .form-clave .campo { flex: none; }
         .form-clave .btn { align-self: flex-start; }
+        .acciones-derechos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+        .barra-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; }
+        .texto-cambios { color: var(--tinta-2); font-weight: 600; margin: 0; }
+        .texto-cambios.con-error { color: #9f2318; }
+        .aviso-errores { background: #fdeceb; color: #7a1b12; border-radius: var(--radio-control); padding: 12px 16px; margin: 0 0 14px; }
+        .aviso-errores ul, .lista-errores { margin: 4px 0 0; padding-left: 18px; }
+        .lista-errores { color: #9f2318; font-size: 0.875rem; }
+        .aviso-ok { background: #e6f4ea; color: #1b5e31; border-radius: var(--radio-control); padding: 12px 16px; margin-top: 14px; line-height: 1.6; }
+        td .sub { display: block; font-size: 0.8125rem; color: var(--tinta-2); }
+        .data-table input.nota-input { width: 4.5em; min-height: 34px; text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; }
+        .data-table input.nota-input.cambiada { background: #fff8e1; border-color: #b58500; }
+        .data-table input.nota-input.invalida { background: #fdeceb; border-color: #c53030; }
+        .fila-error td { background: #fffafa; }
+        .lista-cambios { color: var(--tinta); }
+        .lista-cambios del { color: var(--tinta-2); }
+        .lista-avisos { color: #7a4f00; }
+        .dialogo { margin: auto; border: none; border-radius: 14px; padding: 24px; width: min(640px, calc(100% - 32px)); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); }
+        .dialogo::backdrop { background: rgba(10, 20, 52, 0.45); }
+        .dialogo h3 { margin: 0 0 4px; }
+        .lista-legal { margin: 0 0 20px; padding-left: 20px; line-height: 1.9; }
+        .check-legal { display: flex; gap: 10px; align-items: flex-start; max-width: 640px; line-height: 1.5; cursor: pointer; }
+        .check-legal input { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--azul, #0b3d91); }
         .aviso-clave { background: var(--aviso-fondo); color: var(--aviso-tinta); padding: 10px 14px; border-radius: var(--radio-control); font-weight: 600; }
 
         .accion-destacada {
@@ -859,21 +884,21 @@
             .form-row > .btn { width: 100%; }
         }
     </style>
-    <script src="https://checkout.epayco.co/checkout.js"></script>
 </head>
 <body>
 
-<div id="aviso-demo" class="aviso-demo" role="note" hidden>Versión de demostración: los datos son de prueba y pueden cambiar o borrarse.</div>
+<div id="aviso-demo" class="aviso-demo" role="region" aria-label="Aviso de demostración" hidden>Versión de demostración: los datos son de prueba y pueden cambiar o borrarse.</div>
 
 <!-- LOGIN -->
 <div id="login-screen" class="login-screen">
-    <!-- Foto institucional: reemplazar /img/fondo-codazzi.jpg (ideal ≥ 2400 px de ancho para pantallas ultrawide) -->
+    <!-- Foto: Plaza Alfonso Ávila (Agustín Codazzi), de Breyner Pertuz, Wikimedia Commons, licencia CC BY-SA 4.0. El crédito está en el pie del login.
+         Para cambiarla: reemplazar /img/fondo-codazzi.jpg (ideal ≥ 2400 px de ancho) y actualizar el crédito. -->
     <div class="login-fondo" aria-hidden="true">
         <img src="/img/fondo-codazzi.jpg" width="960" height="720" alt="" fetchpriority="high">
     </div>
     <div class="franja"></div>
     <div class="login-escena">
-        <section class="login-marca">
+        <section class="login-marca" aria-label="CEPDECO">
             <p class="login-chip anim" style="--i:0">
                 <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
                 Agustín Codazzi, Cesar
@@ -885,7 +910,7 @@
 
         <main class="login-card" id="login-card">
             <div class="login-encabezado">
-                <img class="login-logo anim" style="--i:2" src="/img/logo-cepdeco-transparente.png" width="541" height="462"
+                <img class="login-logo anim" style="--i:2" src="/img/logo-cepdeco-transparente.png" width="360" height="307"
                      alt="CEPDECO: Formación para el liderazgo y emprendimiento">
                 <h1 class="anim" style="--i:3">Iniciar sesión</h1>
             </div>
@@ -920,6 +945,7 @@
 <div id="app-screen" class="app-container">
     <div class="cabecera">
     <header class="barra">
+        <a class="saltar" href="#contenido">Saltar al contenido</a>
         <div class="barra-izq">
             <button class="btn btn-ghost btn-menu" id="btn-menu" aria-controls="sidebar" aria-expanded="false" onclick="alternarMenu()">Menú</button>
             <a href="#" class="marca" title="Ir al inicio" onclick="irA('inicio'); return false">
@@ -939,7 +965,8 @@
     <div class="main-layout">
         <nav class="sidebar" id="sidebar" aria-label="Menú principal"></nav>
 
-        <main class="content">
+        <main class="content" id="contenido" tabindex="-1">
+            <h1 class="sr-only">Portal Académico CEPDECO</h1>
             <!-- Inicio -->
             <div id="sec-inicio" class="section-view tablero active">
                 <div class="bienvenida">
@@ -967,6 +994,10 @@
                         <h3>Contacto</h3>
                         <dl class="datos" id="inicio-contacto"></dl>
                     </section>
+                    <section class="ficha-fila">
+                        <h3>Documentos legales</h3>
+                        <p class="enlaces-legales"></p>
+                    </section>
                 </div>
             </div>
 
@@ -993,7 +1024,37 @@
                             <button class="btn btn-secondary btn-sm" style="margin-top:16px" onclick="irA('clave')">Cambiar contraseña</button>
                         </div>
                     </section>
+                    <section class="ficha-fila">
+                        <h3>Mis derechos sobre mis datos</h3>
+                        <div>
+                            <p>Según la Ley 1581 de 2012 puedes pedir a CEPDECO lo siguiente. Al elegir una opción se abre tu correo con la solicitud lista para enviar a la secretaría.
+                                Respondemos consultas en máximo 10 días hábiles y reclamos en máximo 15. Más información en la
+                                <a href="/legal/privacidad.html" target="_blank" rel="noopener">Política de Tratamiento de Datos</a>.</p>
+                            <div class="acciones-derechos">
+                                <button class="btn btn-secondary btn-sm" onclick="solicitarDerecho('consulta')">Saber qué datos tienen de mí</button>
+                                <button class="btn btn-secondary btn-sm" onclick="solicitarDerecho('correccion')">Corregir o actualizar mis datos</button>
+                                <button class="btn btn-secondary btn-sm" onclick="solicitarDerecho('supresion')">Revocar autorización o borrar mis datos</button>
+                            </div>
+                        </div>
+                    </section>
                 </div>
+            </div>
+
+            <!-- Aceptación de documentos legales (primer ingreso o versión nueva) -->
+            <div id="sec-legal" class="section-view">
+                <h2>Antes de continuar</h2>
+                <p class="section-subtitle">Para usar el portal necesitamos que leas y aceptes estos documentos. Se abren en una pestaña nueva.</p>
+                <ul class="lista-legal">
+                    <li><a href="/legal/terminos.html" target="_blank" rel="noopener">Términos y Condiciones de Uso</a></li>
+                    <li><a href="/legal/privacidad.html" target="_blank" rel="noopener">Política de Tratamiento de Datos Personales</a></li>
+                    <li><a href="/legal/pagos.html" target="_blank" rel="noopener">Pagos y Reembolsos</a></li>
+                </ul>
+                <form id="legal-form" class="form-clave">
+                    <label class="check-legal"><input type="checkbox" id="legal-acepta" required>
+                        <span>Leí y acepto los Términos de uso, y autorizo a CEPDECO a tratar mis datos personales según la Política de Tratamiento de Datos.
+                        Si soy menor de edad, mi padre, madre o representante legal dio esta autorización en la matrícula.</span></label>
+                    <button type="submit" id="legal-btn" class="btn btn-primary">Aceptar y continuar</button>
+                </form>
             </div>
 
             <!-- Mi contraseña (todos los roles) -->
@@ -1045,19 +1106,22 @@
             <!-- Gestión de notas (docente / admin) -->
             <div id="sec-docente" class="section-view">
                 <h2>Registro de calificaciones</h2>
-                <p class="section-subtitle">Seleccione asignatura, estudiante y corte para guardar la nota.</p>
+                <p class="section-subtitle">Escribe las notas en la tabla y guarda todo de una vez, o descarga la planilla de Excel, llénala y súbela para revisarla aquí antes de guardar.</p>
                 <div class="form-row">
-                    <label class="campo campo-ancho"><span>Asignatura</span><select id="doc-asig" onchange="renderDocente()"></select></label>
-                    <label class="campo"><span>Estudiante</span><select id="doc-est"></select></label>
-                    <label class="campo campo-corto"><span>Corte</span>
-                        <select id="doc-corte"><option value="1">Corte 1</option><option value="2">Corte 2</option><option value="3">Corte 3</option></select>
-                    </label>
-                    <label class="campo campo-corto"><span>Nota</span><input id="doc-nota" type="number" step="0.1" min="0" max="5" placeholder="0.0 - 5.0"></label>
-                    <button class="btn btn-primary" onclick="guardarNota(this)">Guardar nota</button>
+                    <label class="campo campo-ancho"><span>Asignatura</span><select id="doc-asig" onchange="cambiarAsignatura()"></select></label>
+                    <label class="campo"><span>Buscar estudiante</span><input id="doc-buscar" type="search" placeholder="Nombre, documento o usuario" autocomplete="off" oninput="filtrarDocente()"></label>
                 </div>
+                <div class="barra-acciones">
+                    <button type="button" class="btn btn-secondary btn-sm" id="doc-descargar" onclick="descargarPlanilla(this)">Descargar planilla Excel</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="doc-cargar" onclick="$('doc-archivo').click()">Cargar planilla Excel</button>
+                    <input type="file" id="doc-archivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onchange="cargarPlanilla(this)">
+                    <span id="doc-cambios" class="texto-cambios" aria-live="polite"></span>
+                    <button type="button" class="btn btn-primary" id="doc-guardar" onclick="guardarNotas(this)" disabled>Guardar cambios</button>
+                </div>
+                <div id="doc-errores" class="aviso-errores" role="alert" hidden></div>
                 <div class="table-wrap">
-                    <table class="data-table">
-                        <thead><tr><th>Estudiante</th><th class="num">Corte 1</th><th class="num">Corte 2</th><th class="num">Corte 3</th><th class="num">Acumulado</th><th>Estado</th></tr></thead>
+                    <table class="data-table tabla-notas">
+                        <thead><tr><th>Estudiante</th><th class="num">Corte 1 (30%)</th><th class="num">Corte 2 (30%)</th><th class="num">Corte 3 (40%)</th><th class="num">Acumulado</th><th>Estado</th></tr></thead>
                         <tbody id="doc-body"></tbody>
                     </table>
                 </div>
@@ -1070,7 +1134,7 @@
                 <div class="accion-destacada">
                     <div>
                         <h3>Certificado de Estudios y Paz y Salvo</h3>
-                        <p class="texto-sec">Documento verificado digitalmente para trámites académicos.</p>
+                        <p class="texto-sec">Incluye un código QR para que cualquier persona compruebe que lo expidió CEPDECO.</p>
                     </div>
                     <button class="btn btn-primary" onclick="generarCertificado(this)">Generar certificado PDF</button>
                 </div>
@@ -1093,7 +1157,8 @@
                     </div>
                     <button id="btn-pay" class="btn btn-primary" onclick="pagar(this)">Pagar con ePayco / PSE</button>
                 </div>
-                <p class="texto-sec" style="margin-top:16px">Tus pagos anteriores están en <a href="#" onclick="irA('recibos'); return false">Mis recibos de pago</a>.</p>
+                <p class="texto-sec" style="margin-top:16px">Tus pagos anteriores están en <a href="#" onclick="irA('recibos'); return false">Mis recibos de pago</a>.
+                    Condiciones de pago y reembolso: <a href="/legal/pagos.html" target="_blank" rel="noopener">Pagos y reembolsos</a>.</p>
             </div>
 
             <!-- Mis recibos de pago -->
@@ -1118,6 +1183,9 @@
                         <label class="campo"><span>Usuario</span><input id="nu-user" autocomplete="off"></label>
                         <label class="campo"><span>Nombre completo</span><input id="nu-nombre" autocomplete="off"></label>
                         <label class="campo"><span>Correo</span><input id="nu-email" type="email" autocomplete="off"></label>
+                        <label class="campo campo-corto"><span>Tipo doc.</span><select id="nu-tipo"><option value="">-</option></select></label>
+                        <label class="campo"><span>Documento</span><input id="nu-doc" autocomplete="off" inputmode="numeric"></label>
+                        <label class="campo"><span>Teléfono</span><input id="nu-tel" type="tel" autocomplete="off"></label>
                         <label class="campo"><span>Clave temporal (mín. 8)</span><input id="nu-pass" type="password" autocomplete="new-password"></label>
                         <label class="campo campo-corto"><span>Rol</span>
                             <select id="nu-rol"><option>Estudiante</option><option>Docente</option><option>Administrador</option></select>
@@ -1127,20 +1195,72 @@
                     </div>
                 </section>
                 <section class="bloque">
+                    <h3>Carga masiva desde Excel</h3>
+                    <p class="texto-sec"><strong>Para crear:</strong> descarga la plantilla vacía y llena una fila por persona.
+                        <strong>Para corregir datos:</strong> descarga los usuarios actuales, corrige lo que necesites (por ejemplo un nombre o una cédula mal escrita) y súbelo.
+                        En el mismo archivo puedes agregar filas nuevas. Antes de guardar verás qué se crea y qué cambia.</p>
+                    <div class="barra-acciones">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="descargarPlantillaUsuarios(this)">Descargar plantilla vacía</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="exportarUsuarios(this)">Descargar usuarios actuales</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="$('lote-archivo').click()">Cargar Excel</button>
+                        <input type="file" id="lote-archivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onchange="revisarLote(this)">
+                    </div>
+                    <div id="lote-vista" hidden>
+                        <p id="lote-resumen" class="texto-cambios" aria-live="polite"></p>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead><tr><th class="num">Fila</th><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
+                                <tbody id="lote-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="barra-acciones">
+                            <button type="button" class="btn btn-primary" id="lote-crear" onclick="confirmarLote(this)">Aplicar cambios</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="cancelarLote()">Cancelar</button>
+                        </div>
+                    </div>
+                    <div id="lote-hecho" class="aviso-ok" hidden></div>
+                </section>
+                <section class="bloque">
                     <h3>Usuarios registrados</h3>
+                    <div class="form-row">
+                        <label class="campo campo-ancho"><span>Buscar</span><input id="adm-buscar" type="search" placeholder="Nombre, documento, teléfono, usuario o correo" autocomplete="off" oninput="renderUsuarios()"></label>
+                        <label class="campo campo-corto"><span>Rol</span><select id="adm-filtro-rol" onchange="renderUsuarios()"><option value="">Todos</option><option>Estudiante</option><option>Docente</option><option>Administrador</option></select></label>
+                    </div>
+                    <p id="adm-conteo" class="texto-sec" aria-live="polite"></p>
                     <div class="table-wrap">
                         <table class="data-table">
-                            <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Programa</th></tr></thead>
+                            <thead><tr><th>Usuario</th><th>Nombre</th><th>Documento</th><th>Teléfono</th><th>Correo</th><th>Rol</th><th>Programa</th><th><span class="sr-only">Acciones</span></th></tr></thead>
                             <tbody id="adm-users"></tbody>
                         </table>
                     </div>
                 </section>
             </div>
 
+            <!-- Editar usuario (ventana) -->
+            <dialog id="dlg-usuario" class="dialogo" aria-labelledby="ed-titulo">
+                <form id="ed-form" method="dialog">
+                    <h3 id="ed-titulo">Editar usuario</h3>
+                    <p id="ed-sub" class="texto-sec"></p>
+                    <div class="form-row">
+                        <label class="campo campo-ancho"><span>Nombre completo</span><input id="ed-nombre" required autocomplete="off"></label>
+                        <label class="campo campo-ancho"><span>Correo</span><input id="ed-email" type="email" required autocomplete="off"></label>
+                        <label class="campo campo-corto"><span>Tipo doc.</span><select id="ed-tipo"><option value="">-</option></select></label>
+                        <label class="campo"><span>Documento</span><input id="ed-doc" autocomplete="off" inputmode="numeric"></label>
+                        <label class="campo"><span>Teléfono</span><input id="ed-tel" type="tel" autocomplete="off"></label>
+                        <label class="campo campo-ancho" id="ed-programa-campo"><span>Programa</span><select id="ed-programa"></select></label>
+                        <label class="campo campo-ancho"><span>Nueva clave temporal (opcional, mín. 8)</span><input id="ed-clave" type="password" autocomplete="new-password"></label>
+                    </div>
+                    <div class="barra-acciones">
+                        <button type="button" class="btn btn-primary" id="ed-guardar" onclick="guardarUsuario(this)">Guardar cambios</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="$('dlg-usuario').close()">Cancelar</button>
+                    </div>
+                </form>
+            </dialog>
+
             <!-- Administración: cursos y asignaturas -->
             <div id="sec-adm-cursos" class="section-view">
                 <h2>Cursos y asignaturas</h2>
-                <p class="section-subtitle">Programas técnicos laborales de CEPDECO y sus asignaturas.</p>
+                <p class="section-subtitle">Programas técnicos laborales de CEPDECO, sus asignaturas, sus docentes y qué estudiante ve cada materia.</p>
                 <section class="bloque">
                     <h3>Cursos ofrecidos</h3>
                     <div class="table-wrap">
@@ -1148,6 +1268,56 @@
                             <thead><tr><th>Curso</th><th>Resolución</th><th class="num">Estudiantes</th><th class="num">Asignaturas</th></tr></thead>
                             <tbody id="adm-cursos"></tbody>
                         </table>
+                    </div>
+                </section>
+                <section class="bloque">
+                    <h3>Asignaturas y docentes</h3>
+                    <div class="form-row">
+                        <label class="campo campo-ancho"><span>Buscar</span><input id="as-buscar" type="search" placeholder="Asignatura, curso o docente" autocomplete="off" oninput="renderAsignaturas()"></label>
+                    </div>
+                    <p id="as-conteo" class="texto-sec" aria-live="polite"></p>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Asignatura</th><th>Curso</th><th>Docente</th><th class="num">Estudiantes</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                            <tbody id="adm-asignaturas"></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="bloque">
+                    <h3>Estudiantes por asignatura</h3>
+                    <div class="form-row">
+                        <label class="campo campo-ancho"><span>Buscar</span><input id="mt-buscar" type="search" placeholder="Estudiante, cédula, usuario, asignatura o docente" autocomplete="off" oninput="renderMatriculas()"></label>
+                        <label class="campo campo-corto"><span>Periodo</span><select id="mt-periodo" onchange="renderMatriculas()"><option value="">Todos</option></select></label>
+                    </div>
+                    <p id="mt-conteo" class="texto-sec" aria-live="polite"></p>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead><tr><th>Estudiante</th><th>Documento</th><th>Asignatura</th><th>Curso</th><th>Docente</th><th>Periodo</th></tr></thead>
+                            <tbody id="adm-matriculas"></tbody>
+                        </table>
+                    </div>
+                </section>
+                <section class="bloque">
+                    <h3>Excel de cursos, asignaturas y matrículas</h3>
+                    <p class="texto-sec">Descarga el Excel con dos hojas: <strong>Asignaturas</strong> (curso y docente de cada materia) y <strong>Matrículas</strong> (qué estudiante ve qué materia).
+                        Corrige o agrega filas y súbelo: antes de guardar verás qué se crea y qué cambia. Borrar filas no quita matrículas, para no perder notas.</p>
+                    <div class="barra-acciones">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="exportarAcademico(this)">Descargar Excel</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="$('ac-archivo').click()">Cargar Excel</button>
+                        <input type="file" id="ac-archivo" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onchange="revisarAcademico(this)">
+                    </div>
+                    <div id="ac-vista" hidden>
+                        <p id="ac-resumen" class="texto-cambios" aria-live="polite"></p>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead><tr><th>Hoja</th><th class="num">Fila</th><th>Qué</th><th>Acción</th><th>Detalle</th></tr></thead>
+                                <tbody id="ac-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="barra-acciones">
+                            <button type="button" class="btn btn-primary" id="ac-aplicar" onclick="confirmarAcademico(this)">Aplicar cambios</button>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="cancelarAcademico()">Cancelar</button>
+                        </div>
                     </div>
                 </section>
                 <section class="bloque">
@@ -1161,12 +1331,42 @@
                 </section>
             </div>
 
+            <!-- Editar asignatura (ventana) -->
+            <dialog id="dlg-asig" class="dialogo" aria-labelledby="ea-titulo">
+                <form method="dialog">
+                    <h3 id="ea-titulo">Editar asignatura</h3>
+                    <p id="ea-sub" class="texto-sec"></p>
+                    <div class="form-row">
+                        <label class="campo campo-ancho"><span>Nombre</span><input id="ea-nombre" required autocomplete="off"></label>
+                        <label class="campo campo-ancho"><span>Curso</span><select id="ea-programa"></select></label>
+                        <label class="campo campo-ancho"><span>Docente</span><select id="ea-docente"></select></label>
+                    </div>
+                    <div class="barra-acciones">
+                        <button type="button" class="btn btn-primary" onclick="guardarAsignatura(this)">Guardar cambios</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="$('dlg-asig').close()">Cancelar</button>
+                    </div>
+                </form>
+            </dialog>
+
+            <!-- Confirmación (ventana) -->
+            <dialog id="dlg-confirmar" class="dialogo" aria-labelledby="cf-titulo">
+                <form method="dialog">
+                    <h3 id="cf-titulo">¿Estás seguro?</h3>
+                    <p id="cf-texto"></p>
+                    <div class="barra-acciones">
+                        <button value="si" class="btn btn-primary" id="cf-si">Sí, confirmar</button>
+                        <button value="no" class="btn btn-secondary btn-sm">Cancelar</button>
+                    </div>
+                </form>
+            </dialog>
+
             <!-- Administración: matrículas -->
             <div id="sec-adm-matriculas" class="section-view">
                 <h2>Matrículas</h2>
                 <p class="section-subtitle">Al elegir un curso, el estudiante queda inscrito en ese programa técnico y en sus asignaturas del periodo.</p>
                 <div class="form-row">
-                    <label class="campo"><span>Estudiante</span><select id="nm-est" onchange="cursoDelEstudiante()"></select></label>
+                    <label class="campo"><span>Buscar estudiante</span><input id="nm-buscar" type="search" placeholder="Nombre, cédula o usuario" autocomplete="off" oninput="filtrarEstudiantes('nm-buscar', 'nm-est', cursoDelEstudiante)"></label>
+                    <label class="campo campo-ancho"><span>Estudiante</span><select id="nm-est" onchange="cursoDelEstudiante()"></select></label>
                     <label class="campo campo-ancho"><span>Curso (técnico laboral)</span><select id="nm-curso" onchange="filtrarAsignaturas()"></select></label>
                     <label class="campo campo-ancho"><span>Asignatura</span><select id="nm-asig"></select></label>
                     <label class="campo campo-corto"><span>Periodo</span><input id="nm-periodo" placeholder="2026-B"></label>
@@ -1181,8 +1381,9 @@
                 <div id="adm-pago" style="display:none">
                     <p class="section-subtitle">Marca como aprobado el pago de un certificado ($25.000) sin pasar por ePayco, por ejemplo si pagó en la secretaría. Queda registrado como MANUAL-&lt;tu usuario&gt;.</p>
                     <div class="form-row">
+                        <label class="campo"><span>Buscar estudiante</span><input id="pm-buscar" type="search" placeholder="Nombre, cédula o usuario" autocomplete="off" oninput="filtrarEstudiantes('pm-buscar', 'pm-est')"></label>
                         <label class="campo campo-ancho"><span>Estudiante</span><select id="pm-est"></select></label>
-                        <button class="btn btn-secondary" onclick="pagoManual(this)">Marcar pagado</button>
+                        <button type="button" class="btn btn-secondary" onclick="pagoManual(this)">Marcar pagado</button>
                     </div>
                 </div>
             </div>
@@ -1218,8 +1419,13 @@ const contactoHtml = () =>
     dato('Correo', `<a href="mailto:${CEPDECO.correo}">${esc(CEPDECO.correo)}</a>`) +
     dato('Facebook', enlacesFacebook());
 
+// Documentos legales (borradores en /legal/). Se muestran en el pie del login y en el Inicio
+const LEGALES = [['Tratamiento de datos', '/legal/privacidad.html'], ['Términos de uso', '/legal/terminos.html'], ['Pagos y reembolsos', '/legal/pagos.html']];
+const enlacesLegales = LEGALES.map(([t, u]) => `<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join(' · ');
+document.querySelectorAll('.enlaces-legales').forEach((el) => { el.innerHTML = enlacesLegales; });
+
 $('pie-login').innerHTML = `<div><strong>Contacto CEPDECO</strong><br>${esc(CEPDECO.direccion)}<br>Tel. ${esc(CEPDECO.telefono)} · <a href="mailto:${CEPDECO.correo}">${esc(CEPDECO.correo)}</a></div>
-    <div>NIT 901.564.263-9 · Licencia de funcionamiento: Resolución 002844<br>${enlacesFacebook()}</div>`;
+    <div>NIT 901.564.263-9 · Licencia de funcionamiento: Resolución 002844<br>${enlacesFacebook()}<br>${enlacesLegales}<br><small>Foto: <a href="https://commons.wikimedia.org/wiki/File:Plaza_alfonso_avila.jpg" target="_blank" rel="noopener">Plaza Alfonso Ávila</a>, Breyner Pertuz, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" target="_blank" rel="noopener">CC BY-SA 4.0</a></small></div>`;
 
 fetch('/api/config').then((r) => r.json()).then((c) => { $('aviso-demo').hidden = !c.demo; }).catch(() => {});
 
@@ -1437,15 +1643,17 @@ function entrar() {
     $('role-display').textContent = user.rol;
     $('login-screen').style.display = 'none';
     $('app-screen').style.display = 'flex';
-    // Con clave temporal solo se muestra "Mi contraseña" hasta que la cambie
-    construirMenu(user.cambiarClave ? [{ grupo: 'Datos personales', icono: 'persona', items: [['clave', 'Mi contraseña']] }] : MENU[user.rol]);
+    // Primero se aceptan los documentos legales; luego, con clave temporal, solo se muestra "Mi contraseña" hasta que la cambie
+    const pendiente = user.aceptarLegal ? 'legal' : user.cambiarClave ? 'clave' : null;
+    construirMenu(pendiente === 'legal' ? [{ grupo: 'Datos personales', icono: 'persona', items: [['legal', 'Documentos legales']] }]
+        : pendiente === 'clave' ? [{ grupo: 'Datos personales', icono: 'persona', items: [['clave', 'Mi contraseña']] }] : MENU[user.rol]);
     $('clave-sub').innerHTML = user.cambiarClave
         ? '<span class="aviso-clave">Tu cuenta tiene una contraseña temporal. Cámbiala para continuar.</span>'
         : 'Usa al menos 8 caracteres. Evita fechas, cédulas o el nombre de usuario.';
     $('inicio-accesos').innerHTML = (ACCESOS[user.rol] || [])
         .map(([key, label, ico]) => `<button class="acceso" onclick="irA('${key}')"><span class="acceso-icono">${ICONOS[ico]}</span><span>${esc(label)}</span>${ICONOS.flecha}</button>`).join('');
-    irA(user.cambiarClave ? 'clave' : 'inicio');
-    if (refPayco && user.rol === 'Estudiante' && !user.cambiarClave) confirmarPago();
+    irA(pendiente || 'inicio');
+    if (refPayco && user.rol === 'Estudiante' && !pendiente) confirmarPago();
 }
 
 const LOADERS = {
@@ -1483,13 +1691,28 @@ let perfilCache = null;
 async function cargarDatos() {
     const { perfil, periodoActual } = await api('/api/perfil');
     perfilCache = perfil;
-    $('datos-basicos').innerHTML = dato('Nombres y apellidos', esc(perfil.nombre)) + dato('Correo', esc(perfil.email));
+    $('datos-basicos').innerHTML = dato('Nombres y apellidos', esc(perfil.nombre)) + dato('Correo', esc(perfil.email)) +
+        dato('Documento', perfil.documento ? esc(`${perfil.tipo_documento || ''} ${perfil.documento}`) : 'Sin registrar') +
+        dato('Teléfono', esc(perfil.telefono || 'Sin registrar'));
     $('fila-academicos').style.display = perfil.rol === 'Estudiante' ? '' : 'none';
     $('datos-academicos').innerHTML =
         dato('Programa', perfil.programa ? esc('Técnico Laboral en ' + perfil.programa.nombre) : 'Sin asignar') +
         dato('Resolución del programa', perfil.programa ? esc(perfil.programa.resolucion) : '-') +
         dato('Periodo actual', esc(periodoActual));
     $('datos-cuenta').innerHTML = dato('Usuario', esc(perfil.username)) + dato('Rol', esc(perfil.rol)) + dato('Cuenta creada', esc(fecha(perfil.creado)));
+}
+
+// Solicitudes de derechos sobre los datos (Ley 1581 de 2012, art. 8): abre el correo con la solicitud lista
+const DERECHOS = {
+    consulta: ['Consulta de datos personales', 'Solicito conocer qué datos personales míos tiene CEPDECO y el uso que les ha dado.'],
+    correccion: ['Reclamo: corrección de datos personales', 'Solicito corregir o actualizar los siguientes datos:\n- Dato incorrecto:\n- Dato correcto:'],
+    supresion: ['Reclamo: revocatoria o supresión de datos personales', 'Solicito revocar la autorización y borrar mis datos personales, en lo que no exista un deber legal de conservarlos (por ejemplo, la historia académica).']
+};
+function solicitarDerecho(tipo) {
+    const [asunto, texto] = DERECHOS[tipo];
+    const p = perfilCache || {};
+    const cuerpo = `Señores CEPDECO:\n\n${texto}\n\nNombre: ${p.nombre || user.nombre}\nUsuario del portal: ${p.username || user.username}\nRol: ${user.rol}\n\nGracias.`;
+    location.href = `mailto:${CEPDECO.correo}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
 
 // ---- Estudiante: notas ----
@@ -1543,34 +1766,168 @@ async function cargarPrograma() {
         : '<p class="texto-sec">CEPDECO aún no ha cargado las asignaturas de este programa.</p>';
 }
 
-// ---- Docente / Admin ----
+// ---- Archivos Excel: descargar y subir con la sesión ----
+async function descargarArchivo(url, nombre) {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'No se pudo descargar el archivo');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(await res.blob());
+    a.download = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || nombre;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function subirArchivo(url, archivo) {
+    if (archivo.size > 2 * 1024 * 1024) throw new Error('El archivo es muy grande (máximo 2 MB)');
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' },
+        body: await archivo.arrayBuffer()
+    });
+    if (res.status === 401) { logout(); throw new Error('Tu sesión expiró, inicia sesión de nuevo'); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || 'No se pudo leer el archivo');
+    return data;
+}
+
+const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// ---- Docente / Admin: notas en tabla editable ----
+let notaMinimaDoc = 3.2;
+const PESOS_CORTE = [0.3, 0.3, 0.4];
+const cambiosNotas = new Map(); // "matricula-corte" -> nota (número) o NaN si es inválida
+
 async function cargarDocente() {
-    docData = (await api('/api/docente/asignaturas')).asignaturas;
+    const r = await api('/api/docente/asignaturas');
+    docData = r.asignaturas;
+    notaMinimaDoc = r.notaMinima ?? notaMinimaDoc;
     const prev = $('doc-asig').value;
     $('doc-asig').innerHTML = docData.map((a) => `<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
-    if (prev) $('doc-asig').value = prev;
+    if (prev && docData.some((a) => String(a.id) === prev)) $('doc-asig').value = prev;
+    renderDocente();
+}
+
+const asignaturaDoc = () => docData.find((x) => String(x.id) === $('doc-asig').value);
+
+function cambiarAsignatura() {
+    if (cambiosNotas.size && !confirm('Tienes notas sin guardar en esta asignatura. ¿Descartarlas?')) {
+        $('doc-asig').value = $('doc-asig').dataset.actual || $('doc-asig').value;
+        return;
+    }
     renderDocente();
 }
 
 function renderDocente() {
-    const a = docData.find((x) => String(x.id) === $('doc-asig').value);
+    const a = asignaturaDoc();
+    $('doc-asig').dataset.actual = $('doc-asig').value;
+    cambiosNotas.clear();
+    $('doc-errores').hidden = true;
     const est = a ? a.estudiantes : [];
-    const prev = $('doc-est').value;
-    $('doc-est').innerHTML = est.map((s) => `<option value="${s.matricula_id}">${esc(s.nombre)}</option>`).join('');
-    if (prev) $('doc-est').value = prev;
-    $('doc-body').innerHTML = est.length
-        ? est.map((s) => `<tr><td>${esc(s.nombre)}</td>${celdasNotas(s)}</tr>`).join('')
+    // Sin asignaturas a cargo no hay planilla que descargar ni cargar
+    $('doc-descargar').disabled = $('doc-cargar').disabled = !a;
+    $('doc-body').innerHTML = !a ? vacio(6, 'No tienes asignaturas a tu cargo. Pide a la secretaría que te asigne una en Administración > Cursos y asignaturas.')
+        : est.length
+        ? est.map((s) => `<tr data-m="${s.matricula_id}" data-buscar="${esc(sinTildes([s.nombre, s.documento, s.username].join(' ')))}">
+            <td>${esc(s.nombre)}<span class="sub">${esc(s.documento || s.username)}</span></td>
+            ${s.notas.map((n, i) => `<td class="num"><input class="nota-input" type="text" inputmode="decimal" maxlength="4" data-c="${i + 1}"
+                data-orig="${n === null ? '' : Number(n)}" value="${n === null ? '' : Number(n).toFixed(1)}"
+                aria-label="Corte ${i + 1} de ${esc(s.nombre)}" oninput="editarNota(this)"></td>`).join('')}
+            <td class="num"><strong class="acum">${s.acumulado.toFixed(2)}</strong></td><td class="estado">${badgeNota(s.estado)}</td></tr>`).join('')
         : vacio(6, 'Sin estudiantes matriculados en esta asignatura.');
+    filtrarDocente();
+    actualizarCambios();
 }
 
-const guardarNota = (btn) => conCarga(btn, async () => {
+function filtrarDocente() {
+    const q = sinTildes($('doc-buscar').value).trim();
+    let visibles = 0;
+    document.querySelectorAll('#doc-body tr[data-m]').forEach((tr) => {
+        const ver = !q || tr.dataset.buscar.includes(q);
+        tr.hidden = !ver;
+        if (ver) visibles++;
+    });
+    const total = document.querySelectorAll('#doc-body tr[data-m]').length;
+    $('doc-buscar').setAttribute('aria-description', q ? `${visibles} de ${total} estudiantes` : '');
+}
+
+// Lee una nota escrita (acepta coma); '' = sin nota; NaN = inválida
+function leerNota(txt) {
+    const t = String(txt).trim().replace(',', '.');
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) && n >= 0 && n <= 5 ? Math.round(n * 100) / 100 : NaN;
+}
+
+function editarNota(input) {
+    const tr = input.closest('tr');
+    const clave = `${tr.dataset.m}-${input.dataset.c}`;
+    const n = leerNota(input.value);
+    const orig = input.dataset.orig === '' ? null : Number(input.dataset.orig);
+    input.classList.toggle('invalida', Number.isNaN(n));
+    // Borrar una nota existente no está permitido aquí (se conserva la anterior)
+    if (n === null && orig !== null) { cambiosNotas.set(clave, NaN); input.classList.add('invalida'); }
+    else if (n === orig || (n === null && orig === null)) cambiosNotas.delete(clave);
+    else cambiosNotas.set(clave, n);
+    input.classList.toggle('cambiada', cambiosNotas.has(clave) && !Number.isNaN(cambiosNotas.get(clave)));
+    // Acumulado y estado en vivo
+    const notas = [...tr.querySelectorAll('.nota-input')].map((i) => { const v = leerNota(i.value); return Number.isNaN(v) ? null : v; });
+    const acum = notas.reduce((s, v, i) => s + (v === null ? 0 : v * PESOS_CORTE[i]), 0);
+    tr.querySelector('.acum').textContent = (Math.round(acum * 100) / 100).toFixed(2);
+    const completa = notas.every((v) => v !== null);
+    tr.querySelector('.estado').innerHTML = badgeNota(!completa ? 'En curso' : acum >= notaMinimaDoc ? 'Aprobado' : 'Reprobado');
+    actualizarCambios();
+}
+
+function actualizarCambios() {
+    const invalidas = [...cambiosNotas.values()].filter((v) => Number.isNaN(v)).length;
+    const validas = cambiosNotas.size - invalidas;
+    $('doc-cambios').textContent = !cambiosNotas.size ? ''
+        : invalidas ? `${invalidas} nota(s) inválida(s): deben estar entre 0.0 y 5.0 (no se pueden dejar vacías si ya tenían nota)`
+        : `${validas} nota(s) sin guardar`;
+    $('doc-cambios').classList.toggle('con-error', invalidas > 0);
+    $('doc-guardar').disabled = !validas || invalidas > 0;
+}
+
+const guardarNotas = (btn) => conCarga(btn, async () => {
     try {
-        const r = await api('/api/docente/notas', { method: 'POST', body: { matricula_id: $('doc-est').value, corte: $('doc-corte').value, nota: $('doc-nota').value } });
+        const notas = [...cambiosNotas].map(([k, nota]) => { const [m, c] = k.split('-'); return { matricula_id: +m, corte: +c, nota }; });
+        const r = await api('/api/docente/notas/lote', { method: 'POST', body: { asignatura_id: $('doc-asig').value, notas } });
+        cambiosNotas.clear();
         msg(r.message);
-        $('doc-nota').value = '';
         await cargarDocente();
     } catch (e) { msg(e.message, false); }
 });
+
+const descargarPlanilla = (btn) => conCarga(btn, async () => {
+    if (!asignaturaDoc()) return msg('No tienes asignaturas a tu cargo', false);
+    try { await descargarArchivo('/api/docente/plantilla/' + $('doc-asig').value, 'notas.xlsx'); }
+    catch (e) { msg(e.message, false); }
+});
+
+// Sube la planilla llena: las notas se ponen en la tabla para revisarlas; se guardan con "Guardar cambios"
+const cargarPlanilla = (input) => {
+    const archivo = input.files[0];
+    input.value = '';
+    if (!archivo || !asignaturaDoc()) return;
+    conCarga($('doc-guardar'), async () => {
+        try {
+            const r = await subirArchivo('/api/docente/plantilla/' + $('doc-asig').value, archivo);
+            let puestas = 0;
+            r.notas.forEach((n) => {
+                const inp = document.querySelector(`#doc-body tr[data-m="${n.matricula_id}"] .nota-input[data-c="${n.corte}"]`);
+                if (!inp) return;
+                inp.value = n.nota.toFixed(1);
+                editarNota(inp);
+                puestas++;
+            });
+            $('doc-errores').hidden = !r.errores.length;
+            $('doc-errores').innerHTML = r.errores.length ? `<strong>Revisa estas filas del Excel:</strong><ul>${r.errores.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '';
+            const cambios = [...cambiosNotas.values()].filter((v) => !Number.isNaN(v)).length;
+            msg(cambios ? `Planilla leída: ${cambios} nota(s) nueva(s) o cambiada(s). Revísalas y pulsa "Guardar cambios".`
+                : puestas ? 'La planilla no trae notas distintas a las que ya están guardadas.' : 'La planilla no trae notas.', !r.errores.length);
+        } catch (e) { msg(e.message, false); }
+    });
+};
 
 // ---- Certificados ----
 async function cargarCertificados() {
@@ -1617,9 +1974,19 @@ async function cargarPagos() {
         : vacio(4, 'Sin pagos todavía.');
 }
 
+// El script de ePayco solo se descarga al pagar: así ePayco no recibe datos de quien solo consulta el portal
+let epaycoListo = null;
+const cargarEpayco = () => epaycoListo ??= new Promise((ok, falla) => {
+    const s = document.createElement('script');
+    s.src = 'https://checkout.epayco.co/checkout.js';
+    s.onload = ok;
+    s.onerror = () => { epaycoListo = null; s.remove(); falla(new Error('No se pudo cargar la pasarela de pagos. Revisa tu conexión e inténtalo de nuevo.')); };
+    document.head.appendChild(s);
+});
+
 const pagar = (btn) => conCarga(btn, async () => {
     try {
-        const p = await api('/api/pagos/iniciar', { method: 'POST' });
+        const [p] = await Promise.all([api('/api/pagos/iniciar', { method: 'POST' }), cargarEpayco()]);
         const handler = ePayco.checkout.configure({ key: p.publicKey, test: true });
         handler.open({
             name: 'Expedición Certificado Académico',
@@ -1672,34 +2039,341 @@ function filtrarAsignaturas() {
 }
 
 async function cargarAdmin() {
-    admData = await api('/api/admin/resumen');
+    // Si la lista de matrículas falla, el resto de la administración se muestra igual
+    const [resumen, mats] = await Promise.all([
+        api('/api/admin/resumen'),
+        api('/api/admin/matriculas').catch((e) => { msg('No se pudo cargar la lista de matrículas: ' + e.message, false); return { matriculas: [] }; })
+    ]);
+    admData = resumen;
+    admMatriculas = mats.matriculas;
     const { usuarios, programas, periodoActual, pagoManual } = admData;
-    const estudiantes = usuarios.filter((u) => u.rol === 'Estudiante');
-    const prevEst = $('nm-est').value;
     $('na-docente').innerHTML = '<option value="">(sin docente)</option>' + opt(usuarios.filter((u) => u.rol === 'Docente'), (u) => u.nombre_completo);
     $('na-programa').innerHTML = '<option value="">(general, sin curso)</option>' + opt(programas, nombreCurso);
     $('nu-programa').innerHTML = '<option value="">(sin programa)</option>' + opt(programas, (p) => `${p.nombre} (Res. ${p.resolucion})`);
-    $('nm-est').innerHTML = opt(estudiantes, (u) => u.nombre_completo);
-    if (prevEst) $('nm-est').value = prevEst;
     $('nm-curso').innerHTML = '<option value="">(sin curso, solo una asignatura)</option>' + opt(programas, nombreCurso);
-    cursoDelEstudiante();
+    filtrarEstudiantes('nm-buscar', 'nm-est', cursoDelEstudiante);
     if (!$('nm-periodo').value) $('nm-periodo').value = periodoActual;
     $('adm-cursos').innerHTML = programas.map((p) => `<tr><td>${esc(nombreCurso(p))}</td><td>${esc(p.resolucion)}</td>
         <td class="num">${p.estudiantes}</td><td class="num">${p.asignaturas}</td></tr>`).join('');
     $('adm-pago').style.display = pagoManual ? 'block' : 'none';
     $('adm-pago-off').style.display = pagoManual ? 'none' : 'block';
-    $('pm-est').innerHTML = opt(estudiantes, (u) => `${u.nombre_completo} (${u.username})`);
-    $('adm-users').innerHTML = usuarios.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.nombre_completo)}</td><td>${esc(u.email)}</td><td>${esc(u.rol)}</td><td>${esc(u.programa || '-')}</td></tr>`).join('');
+    filtrarEstudiantes('pm-buscar', 'pm-est');
+    const docentes = usuarios.filter((u) => u.rol === 'Docente');
+    $('ea-programa').innerHTML = '<option value="">(general, sin curso)</option>' + opt(programas, nombreCurso);
+    $('ea-docente').innerHTML = '<option value="">(sin docente)</option>' + opt(docentes, (u) => `${u.nombre_completo} (${u.username})`);
+    const periodos = [...new Set(admMatriculas.map((m) => m.periodo))].sort().reverse();
+    const perPrev = $('mt-periodo').value;
+    $('mt-periodo').innerHTML = '<option value="">Todos</option>' + periodos.map((x) => `<option>${esc(x)}</option>`).join('');
+    if (periodos.includes(perPrev)) $('mt-periodo').value = perPrev;
+    renderAsignaturas();
+    renderMatriculas();
+    const tipos = '<option value="">-</option>' + TIPOS_DOC.map((t) => `<option>${t}</option>`).join('');
+    if ($('nu-tipo').options.length < 2) { $('nu-tipo').innerHTML = tipos; $('ed-tipo').innerHTML = tipos; }
+    $('ed-programa').innerHTML = '<option value="">(sin programa)</option>' + opt(programas, nombreCurso);
+    renderUsuarios();
 }
 
 const accionAdmin = (btn, url, body) => conCarga(btn, async () => {
     try { msg((await api(url, { method: 'POST', body })).message); await cargarAdmin(); }
     catch (e) { msg(e.message, false); }
 });
-const crearUsuario = (btn) => accionAdmin(btn, '/api/admin/usuarios', { username: $('nu-user').value, nombre_completo: $('nu-nombre').value, email: $('nu-email').value, password: $('nu-pass').value, rol: $('nu-rol').value, programa_id: $('nu-programa').value || null });
+const TIPOS_DOC = ['CC', 'TI', 'CE', 'PPT', 'PA', 'RC'];
+const crearUsuario = (btn) => accionAdmin(btn, '/api/admin/usuarios', {
+    username: $('nu-user').value, nombre_completo: $('nu-nombre').value, email: $('nu-email').value,
+    tipo_documento: $('nu-tipo').value, documento: $('nu-doc').value, telefono: $('nu-tel').value,
+    password: $('nu-pass').value, rol: $('nu-rol').value, programa_id: $('nu-programa').value || null
+});
+
+// ---- Usuarios: búsqueda y edición ----
+function renderUsuarios() {
+    const q = sinTildes($('adm-buscar').value).trim();
+    const qNum = q.replace(/[^0-9]/g, '');
+    const rolF = $('adm-filtro-rol').value;
+    const lista = admData.usuarios.filter((u) => (!rolF || u.rol === rolF) && (!q
+        || sinTildes([u.nombre_completo, u.username, u.email].join(' ')).includes(q)
+        || (qNum.length >= 3 && [u.documento, u.telefono].some((x) => String(x || '').replace(/[^0-9]/g, '').includes(qNum)))));
+    $('adm-conteo').textContent = q || rolF ? `${lista.length} de ${admData.usuarios.length} usuarios` : `${admData.usuarios.length} usuarios`;
+    $('adm-users').innerHTML = lista.length
+        ? lista.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.nombre_completo)}</td>
+            <td>${u.documento ? `${esc(u.tipo_documento || '')} ${esc(u.documento)}` : '-'}</td><td>${esc(u.telefono || '-')}</td>
+            <td>${esc(u.email)}</td><td>${esc(u.rol)}</td><td>${esc(u.programa || '-')}</td>
+            <td><button type="button" class="btn btn-secondary btn-sm" onclick="editarUsuario(${u.id})" aria-label="Editar a ${esc(u.nombre_completo)}">Editar</button></td></tr>`).join('')
+        : vacio(8, 'Ningún usuario coincide con la búsqueda.');
+}
+
+let editandoId = null;
+function editarUsuario(id) {
+    const u = admData.usuarios.find((x) => x.id === id);
+    if (!u) return;
+    editandoId = id;
+    $('ed-sub').textContent = `${u.username} · ${u.rol}`;
+    $('ed-nombre').value = u.nombre_completo;
+    $('ed-email').value = u.email;
+    $('ed-tipo').value = u.tipo_documento || '';
+    $('ed-doc').value = u.documento || '';
+    $('ed-tel').value = u.telefono || '';
+    $('ed-clave').value = '';
+    $('ed-programa-campo').hidden = u.rol !== 'Estudiante';
+    $('ed-programa').value = u.programa_id || '';
+    $('dlg-usuario').showModal();
+    $('ed-nombre').focus();
+}
+
+const guardarUsuario = (btn) => conCarga(btn, async () => {
+    try {
+        const r = await api('/api/admin/usuarios/' + editandoId, { method: 'PUT', body: {
+            nombre_completo: $('ed-nombre').value, email: $('ed-email').value, tipo_documento: $('ed-tipo').value,
+            documento: $('ed-doc').value, telefono: $('ed-tel').value, programa_id: $('ed-programa').value || null, nueva_clave: $('ed-clave').value
+        } });
+        $('dlg-usuario').close();
+        msg(r.message);
+        await cargarAdmin();
+    } catch (e) { msg(e.message, false); }
+});
+
+// ---- Usuarios: carga masiva por Excel ----
+let archivoLote = null;
+const descargarPlantillaUsuarios = (btn) => conCarga(btn, async () => {
+    try { await descargarArchivo('/api/admin/plantilla/usuarios', 'plantilla-usuarios-cepdeco.xlsx'); }
+    catch (e) { msg(e.message, false); }
+});
+
+const exportarUsuarios = (btn) => conCarga(btn, async () => {
+    try {
+        await descargarArchivo('/api/admin/usuarios/exportar', 'usuarios-cepdeco.xlsx');
+        msg('Descargado. El archivo tiene datos personales: guárdalo en un lugar seguro y bórralo cuando termines.');
+    } catch (e) { msg(e.message, false); }
+});
+
+function cancelarLote() {
+    archivoLote = null;
+    $('lote-vista').hidden = true;
+}
+
+const revisarLote = (input) => {
+    archivoLote = input.files[0] || null;
+    input.value = '';
+    if (!archivoLote) return;
+    $('lote-hecho').hidden = true;
+    conCarga($('lote-crear'), async () => {
+        try {
+            const r = await subirArchivo('/api/admin/usuarios/lote', archivoLote);
+            const ACCION = { crear: ['Crear', 'status-paid'], actualizar: ['Actualizar', 'status-pending'], 'sin cambios': ['Sin cambios', 'status-none'], error: ['Error', 'status-failed'] };
+            const lista = (items, cls = '') => items.length ? `<ul class="lista-errores ${cls}">${items.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
+            $('lote-body').innerHTML = r.filas.map((f) => {
+                const [txt, cls] = ACCION[f.accion] || [f.accion, 'status-none'];
+                const detalle = f.errores.length ? lista(f.errores.map(esc))
+                    : (f.accion === 'crear' ? `<span class="texto-sec">${esc([f.documento, f.programa, f.periodo].filter(Boolean).join(' · ') || 'Usuario nuevo')}</span>`
+                        : lista(f.cambios.map((c) => c.antes ? `${esc(c.campo)}: <del>${esc(c.antes)}</del> → <strong>${esc(c.despues || '(vacío)')}</strong>` : `${esc(c.campo)}: <strong>${esc(c.despues)}</strong>`), 'lista-cambios'))
+                    + lista(f.avisos.map(esc), 'lista-avisos');
+                return `<tr class="${f.errores.length ? 'fila-error' : ''}"><td class="num">${f.fila}</td><td>${esc(f.username)}</td><td>${esc(f.nombre)}</td>
+                    <td>${esc(f.rol)}</td><td><span class="badge-status ${cls}">${txt}</span></td><td>${detalle || '-'}</td></tr>`;
+            }).join('');
+            const { crear, actualizar, sinCambios, errores } = r.resumen;
+            const hacer = crear + actualizar;
+            $('lote-resumen').textContent = errores
+                ? `${errores} fila(s) con errores. Corrígelas en el Excel y vuelve a cargarlo (no se guarda nada mientras haya errores).`
+                : hacer ? `${crear} usuario(s) nuevo(s), ${actualizar} con cambios y ${sinCambios} sin cambios.`
+                : 'El archivo no trae usuarios nuevos ni cambios.';
+            $('lote-resumen').classList.toggle('con-error', errores > 0);
+            $('lote-crear').textContent = [crear && `crear ${crear}`, actualizar && `actualizar ${actualizar}`].filter(Boolean).join(' y ').replace(/^./, (c) => c.toUpperCase());
+            $('lote-crear').hidden = errores > 0 || !hacer;
+            $('lote-vista').hidden = false;
+        } catch (e) { msg(e.message, false); cancelarLote(); }
+    });
+};
+
+let clavesLote = [];
+const confirmarLote = (btn) => conCarga(btn, async () => {
+    if (!archivoLote) return;
+    try {
+        const r = await subirArchivo('/api/admin/usuarios/lote?confirmar=1', archivoLote);
+        if (!r.confirmado) { msg('El archivo tiene errores: revisa la vista previa', false); return; }
+        cancelarLote();
+        clavesLote = r.creados.filter((c) => c.clave_generada);
+        $('lote-hecho').innerHTML = `<strong>${esc(r.message)}.</strong>` + (r.creados.length ? ' Los usuarios nuevos deben cambiar su clave temporal al entrar.' : '') +
+            (clavesLote.length ? ` <button type="button" class="btn btn-secondary btn-sm" onclick="descargarClavesLote()">Descargar claves generadas (${clavesLote.length})</button>
+                <br><small>Entrega cada clave por un canal privado y borra el archivo después. Las claves no se vuelven a mostrar.</small>` : '');
+        $('lote-hecho').hidden = false;
+        msg(r.message);
+        await cargarAdmin();
+    } catch (e) { msg(e.message, false); }
+});
+
+// CSV para Excel (con BOM para las tildes); evita que un valor se interprete como fórmula
+function descargarClavesLote() {
+    const celda = (v) => { let t = String(v ?? ''); if (/^[=+\-@]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
+    const filas = [['Usuario', 'Nombre', 'Rol', 'Clave temporal'], ...clavesLote.map((c) => [c.username, c.nombre, c.rol, c.clave_generada])];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + filas.map((f) => f.map(celda).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = 'claves-temporales-nuevos-usuarios.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 const crearAsignatura = (btn) => accionAdmin(btn, '/api/admin/asignaturas', { nombre: $('na-nombre').value, docente_id: $('na-docente').value || null, programa_id: $('na-programa').value || null });
 const matricular = (btn) => accionAdmin(btn, '/api/admin/matriculas', { estudiante_id: $('nm-est').value, programa_id: $('nm-curso').value || null, asignatura_id: $('nm-asig').value || null, periodo: $('nm-periodo').value });
-const pagoManual = (btn) => accionAdmin(btn, '/api/admin/pagos/manual', { estudiante_id: $('pm-est').value });
+// ---- Buscar estudiantes (matrícula y pagos manuales) ----
+const docTexto = (u) => (u.documento ? `${u.tipo_documento || ''} ${u.documento}`.trim() : '');
+const etiquetaEstudiante = (u) => [u.nombre_completo, docTexto(u) || 'sin documento', u.username].join(' · ');
+function coincidePersona(campos, docs, q) {
+    if (!q) return true;
+    const qNum = q.replace(/[^0-9]/g, '');
+    return sinTildes(campos.join(' ')).includes(q) || (qNum.length >= 3 && docs.some((x) => String(x || '').replace(/[^0-9]/g, '').includes(qNum)));
+}
+function filtrarEstudiantes(inputId, selectId, despues) {
+    const q = sinTildes($(inputId).value).trim();
+    const prev = $(selectId).value;
+    const lista = admData.usuarios.filter((u) => u.rol === 'Estudiante' && coincidePersona([u.nombre_completo, u.username], [u.documento, u.telefono], q));
+    $(selectId).innerHTML = lista.length ? opt(lista, etiquetaEstudiante) : '<option value="">Ningún estudiante coincide con la búsqueda</option>';
+    if (lista.some((u) => String(u.id) === prev)) $(selectId).value = prev;
+    if (despues) despues();
+}
+
+// ---- Confirmación con ventana propia (devuelve true si la persona acepta) ----
+function confirmar(titulo, html, boton) {
+    return new Promise((resolver) => {
+        const d = $('dlg-confirmar');
+        $('cf-titulo').textContent = titulo;
+        $('cf-texto').innerHTML = html;
+        $('cf-si').textContent = boton;
+        d.returnValue = '';
+        d.addEventListener('close', () => resolver(d.returnValue === 'si'), { once: true });
+        d.showModal();
+        d.querySelector('button[value="no"]').focus();
+    });
+}
+
+const pagoManual = async (btn) => {
+    const u = admData.usuarios.find((x) => String(x.id) === $('pm-est').value);
+    if (!u) return msg('Busca y elige un estudiante', false);
+    const doc = docTexto(u);
+    const ok = await confirmar('Confirmar pago manual',
+        `¿Estás seguro de que deseas marcar como <strong>pagado</strong> el certificado de <strong>${esc(u.nombre_completo)}</strong>,
+         ${doc ? `con documento <strong>${esc(doc)}</strong>` : '<strong>sin documento registrado</strong>'} (usuario ${esc(u.username)})?<br><br>
+         Se registrará un pago aprobado de $25.000 a tu nombre.`, 'Sí, marcar como pagado');
+    if (ok) accionAdmin(btn, '/api/admin/pagos/manual', { estudiante_id: u.id });
+};
+
+// ---- Asignaturas y docentes ----
+let admMatriculas = [];
+function renderAsignaturas() {
+    const q = sinTildes($('as-buscar').value).trim();
+    const cursos = new Map(admData.programas.map((p) => [p.id, p.nombre]));
+    const lista = admData.asignaturas.filter((a) => !q || sinTildes([a.nombre, cursos.get(a.programa_id), a.docente].join(' ')).includes(q));
+    $('as-conteo').textContent = q ? `${lista.length} de ${admData.asignaturas.length} asignaturas` : `${admData.asignaturas.length} asignaturas`;
+    $('adm-asignaturas').innerHTML = lista.length
+        ? lista.map((a) => `<tr><td>${esc(a.nombre)}</td><td>${esc(cursos.get(a.programa_id) || 'General')}</td>
+            <td>${a.docente ? esc(a.docente) : '<span class="texto-cambios con-error">Sin docente</span>'}</td><td class="num">${a.estudiantes ?? '-'}</td>
+            <td><button type="button" class="btn btn-secondary btn-sm" onclick="editarAsignatura(${a.id})" aria-label="Editar ${esc(a.nombre)}">Editar</button></td></tr>`).join('')
+        : vacio(5, 'Ninguna asignatura coincide con la búsqueda.');
+}
+
+const MAX_FILAS_TABLA = 300;
+function renderMatriculas() {
+    const q = sinTildes($('mt-buscar').value).trim();
+    const per = $('mt-periodo').value;
+    const lista = admMatriculas.filter((m) => (!per || m.periodo === per)
+        && coincidePersona([m.estudiante, m.usuario, m.asignatura, m.curso, m.docente], [m.documento], q));
+    $('mt-conteo').textContent = `${lista.length} de ${admMatriculas.length} matrículas` + (lista.length > MAX_FILAS_TABLA ? ` (se muestran las primeras ${MAX_FILAS_TABLA}; usa la búsqueda o el Excel para ver todas)` : '');
+    $('adm-matriculas').innerHTML = lista.length
+        ? lista.slice(0, MAX_FILAS_TABLA).map((m) => `<tr><td>${esc(m.estudiante)}<span class="sub">${esc(m.usuario)}</span></td><td>${esc(docTexto(m) || '-')}</td>
+            <td>${esc(m.asignatura)}</td><td>${esc(m.curso || 'General')}</td><td>${esc(m.docente || 'Sin docente')}</td><td>${esc(m.periodo)}</td></tr>`).join('')
+        : vacio(6, admMatriculas.length ? 'Ninguna matrícula coincide con la búsqueda.' : 'Aún no hay matrículas.');
+}
+
+let editandoAsig = null;
+function editarAsignatura(id) {
+    const a = admData.asignaturas.find((x) => x.id === id);
+    if (!a) return;
+    editandoAsig = id;
+    $('ea-sub').textContent = `${a.estudiantes ?? 0} estudiante(s) matriculado(s)`;
+    $('ea-nombre').value = a.nombre;
+    $('ea-programa').value = a.programa_id || '';
+    $('ea-docente').value = a.docente_id || '';
+    $('dlg-asig').showModal();
+    $('ea-nombre').focus();
+}
+
+const guardarAsignatura = (btn) => conCarga(btn, async () => {
+    try {
+        const r = await api('/api/admin/asignaturas/' + editandoAsig, { method: 'PUT', body: { nombre: $('ea-nombre').value, programa_id: $('ea-programa').value || null, docente_id: $('ea-docente').value || null } });
+        $('dlg-asig').close();
+        msg(r.message);
+        await cargarAdmin();
+    } catch (e) { msg(e.message, false); }
+});
+
+// ---- Excel de cursos, asignaturas y matrículas ----
+let archivoAcademico = null;
+const exportarAcademico = (btn) => conCarga(btn, async () => {
+    try {
+        await descargarArchivo('/api/admin/academico/exportar', 'cursos-y-matriculas-cepdeco.xlsx');
+        msg('Descargado. El archivo tiene datos personales: guárdalo en un lugar seguro y bórralo cuando termines.');
+    } catch (e) { msg(e.message, false); }
+});
+function cancelarAcademico() { archivoAcademico = null; $('ac-vista').hidden = true; }
+
+const revisarAcademico = (input) => {
+    archivoAcademico = input.files[0] || null;
+    input.value = '';
+    if (!archivoAcademico) return;
+    conCarga($('ac-aplicar'), async () => {
+        try {
+            const r = await subirArchivo('/api/admin/academico/lote', archivoAcademico);
+            const ACC = { crear: ['Crear', 'status-paid'], actualizar: ['Actualizar', 'status-pending'], 'sin cambios': ['Sin cambios', 'status-none'], error: ['Error', 'status-failed'] };
+            const lista = (items, cls = '') => items.length ? `<ul class="lista-errores ${cls}">${items.map((t) => `<li>${t}</li>`).join('')}</ul>` : '';
+            const fila = (hoja, f, que, detalle) => {
+                const [txt, cls] = ACC[f.accion] || [f.accion, 'status-none'];
+                return `<tr class="${f.errores.length ? 'fila-error' : ''}"><td>${hoja}</td><td class="num">${f.fila}</td><td>${que}</td>
+                    <td><span class="badge-status ${cls}">${txt}</span></td><td>${detalle || '-'}</td></tr>`;
+            };
+            const filasA = r.asignaturas.map((a) => fila('Asignaturas', a, esc(a.nombre),
+                a.errores.length ? lista(a.errores.map(esc))
+                    : a.accion === 'crear' ? `<span class="texto-sec">${esc([a.curso || 'General', a.docente || 'Sin docente'].join(' · '))}</span>`
+                    : lista(a.cambios.map((c) => `${esc(c.campo)}: <del>${esc(c.antes || '(vacío)')}</del> → <strong>${esc(c.despues || '(vacío)')}</strong>`), 'lista-cambios')));
+            const filasM = r.matriculas.map((m) => fila('Matrículas', m, `${esc(m.estudiante || m.usuario)} → ${esc(m.asignatura)}`,
+                (m.errores.length ? lista(m.errores.map(esc)) : m.accion === 'crear' ? `<span class="texto-sec">Periodo ${esc(m.periodo)}</span>` : '') + lista(m.avisos.map(esc), 'lista-avisos')));
+            $('ac-body').innerHTML = [...filasA, ...filasM].join('') || vacio(5, 'Sin cambios.');
+            const { asignaturas: A, matriculas: M } = r.resumen;
+            const errores = A.errores + M.errores;
+            const hacer = A.crear + A.actualizar + M.crear;
+            $('ac-resumen').textContent = errores
+                ? `${errores} fila(s) con errores. Corrígelas en el Excel y vuelve a cargarlo (no se guarda nada mientras haya errores).`
+                : hacer ? `Asignaturas: ${A.crear} nueva(s), ${A.actualizar} con cambios. Matrículas: ${M.crear} nueva(s). El resto queda igual.`
+                : 'El archivo no trae cambios.';
+            $('ac-resumen').classList.toggle('con-error', errores > 0);
+            $('ac-aplicar').hidden = errores > 0 || !hacer;
+            $('ac-vista').hidden = false;
+        } catch (e) { msg(e.message, false); cancelarAcademico(); }
+    });
+};
+
+const confirmarAcademico = (btn) => conCarga(btn, async () => {
+    if (!archivoAcademico) return;
+    try {
+        const r = await subirArchivo('/api/admin/academico/lote?confirmar=1', archivoAcademico);
+        if (!r.confirmado) { msg('El archivo tiene errores o no trae cambios: revisa la vista previa', false); return; }
+        cancelarAcademico();
+        msg(r.message);
+        await cargarAdmin();
+    } catch (e) { msg(e.message, false); }
+});
+
+// ---- Aceptación de documentos legales ----
+$('legal-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    conCarga($('legal-btn'), async () => {
+        try {
+            const r = await api('/api/legal/aceptar', { method: 'POST', body: { acepta: $('legal-acepta').checked } });
+            token = r.token; user = r.user;
+            sessionStorage.setItem('token', token);
+            sessionStorage.setItem('user', JSON.stringify(user));
+            $('legal-form').reset();
+            entrar();
+            msg(r.message);
+        } catch (ex) { msg(ex.message, false); }
+    });
+});
 
 // ---- Mi contraseña ----
 $('clave-form').addEventListener('submit', (e) => {

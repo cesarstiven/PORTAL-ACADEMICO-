@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
@@ -10,6 +9,7 @@ const QRCode = require('qrcode');
 require('dotenv').config();
 const db = require('./db');
 const { NOTA_MINIMA, num, periodoActual, resumenNotas } = require('./academico');
+const excel = require('./excel');
 
 const PORT = process.env.PORT || 5000;
 // URL pública (QR del certificado y confirmación de ePayco). Si PUBLIC_URL no es una URL válida se ignora
@@ -44,9 +44,23 @@ if (!JWT_SECRET) {
 }
 
 const app = express();
-app.use(cors());
+// Cabeceras de seguridad (sin CORS: el portal y la API están en el mismo dominio, así otros sitios no pueden leer sus respuestas)
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+});
+// Render pone el servidor detrás de un proxy: así req.ip es la IP real del visitante
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Imágenes y fuentes casi nunca cambian: el navegador las guarda 7 días (si se cambia un logo, se ve al vencer o con Ctrl+F5)
+for (const carpeta of ['img', 'fonts']) app.use(`/${carpeta}`, express.static(path.join(__dirname, 'public', carpeta), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------- Utilidades ----------
@@ -62,6 +76,10 @@ function auth(req, res, next) {
     } catch {
         return res.status(401).json({ success: false, message: 'Sesión inválida o expirada' });
     }
+    // Sin aceptar los documentos legales solo se permite consultar la sesión y aceptarlos
+    if (req.user.aceptarLegal && !['/api/auth/me', '/api/legal/aceptar'].includes(req.path)) {
+        return res.status(403).json({ success: false, message: 'Debes aceptar los Términos de uso y la Política de Tratamiento de Datos para continuar' });
+    }
     // Con clave temporal solo se permite consultar la sesión y cambiar la clave
     if (req.user.cambiarClave && !['/api/auth/me', '/api/auth/cambiar-clave'].includes(req.path)) {
         return res.status(403).json({ success: false, message: 'Debes cambiar tu contraseña temporal antes de continuar' });
@@ -69,8 +87,13 @@ function auth(req, res, next) {
     next();
 }
 
+// Versión vigente de los documentos legales. Al cambiarla, todos deben aceptarlos de nuevo al entrar.
+const VERSION_LEGAL = '0.1';
+const aceptoLegal = async (usuarioId) =>
+    (await db.query('SELECT 1 FROM aceptaciones_legales WHERE usuario_id = $1 AND version = $2', [usuarioId, VERSION_LEGAL])).rowCount > 0;
+
 const firmarSesion = (u) => {
-    const perfil = { id: u.id, username: u.username, nombre: u.nombre_completo, email: u.email, rol: u.rol, cambiarClave: !!u.debe_cambiar_clave };
+    const perfil = { id: u.id, username: u.username, nombre: u.nombre_completo, email: u.email, rol: u.rol, cambiarClave: !!u.debe_cambiar_clave, aceptarLegal: !u.acepto_legal };
     return { token: jwt.sign(perfil, JWT_SECRET, { expiresIn: '8h' }), user: perfil };
 };
 
@@ -78,6 +101,42 @@ const rol = (...roles) => (req, res, next) =>
     roles.includes(req.user.rol)
         ? next()
         : res.status(403).json({ success: false, message: 'No tienes permiso para esta acción' });
+
+// Error con código HTTP (lo responde el manejador de errores del final)
+const httpError = (status, message) => Object.assign(new Error(message), { status });
+
+// ---------- Validación de datos personales (crear, editar y carga masiva) ----------
+const RE_USUARIO = /^[A-Za-z0-9._-]{3,40}$/;
+const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const RE_DOCUMENTO = /^[0-9A-Za-z-]{4,20}$/;
+const RE_TELEFONO = /^[0-9 +()-]{7,20}$/;
+const RE_PERIODO = /^\d{4}-[AB]$/;
+
+// Devuelve { errores, datos } con los campos limpios; documento y teléfono son opcionales (vacío = null)
+function validarPersona(d) {
+    const errores = [];
+    const datos = {
+        nombre_completo: String(d.nombre_completo ?? '').trim().replace(/\s+/g, ' '),
+        email: String(d.email ?? '').trim().toLowerCase(),
+        tipo_documento: String(d.tipo_documento ?? '').trim().toUpperCase() || null,
+        documento: String(d.documento ?? '').replace(/[.\s]/g, '').trim() || null,
+        telefono: String(d.telefono ?? '').trim() || null
+    };
+    if (datos.nombre_completo.length < 3 || datos.nombre_completo.length > 120) errores.push('El nombre completo debe tener entre 3 y 120 caracteres');
+    if (!RE_CORREO.test(datos.email) || datos.email.length > 120) errores.push('El correo no es válido');
+    if (datos.documento && !RE_DOCUMENTO.test(datos.documento)) errores.push('El documento solo admite números, letras y guion (4 a 20)');
+    if (datos.documento && !excel.TIPOS_DOCUMENTO.includes(datos.tipo_documento)) errores.push(`Elige el tipo de documento (${excel.TIPOS_DOCUMENTO.join(', ')})`);
+    if (!datos.documento) datos.tipo_documento = null;
+    if (datos.telefono && !RE_TELEFONO.test(datos.telefono)) errores.push('El teléfono solo admite números, espacios, +, guion y paréntesis (7 a 20)');
+    return { errores, datos };
+}
+
+// Clave temporal aleatoria, sin caracteres que se confunden (0/O, 1/l/I)
+const ALFABETO_CLAVE = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const claveTemporal = () => Array.from({ length: 10 }, () => ALFABETO_CLAVE[crypto.randomInt(ALFABETO_CLAVE.length)]).join('');
+
+// Recibe un .xlsx como cuerpo binario (máx. 2 MB)
+const subirExcel = express.raw({ type: () => true, limit: '2mb' });
 
 function safeEqual(a, b) {
     const ha = crypto.createHash('sha256').update(String(a)).digest();
@@ -96,15 +155,35 @@ app.get('/api/health', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ /api/health: no se pudo conectar a la BD:', error.message);
-        res.status(500).json({ status: 'ERROR', message: 'Error conectando a la BD', error: error.message });
+        res.status(500).json({ status: 'ERROR', message: 'Error conectando a la BD' });
     }
 });
 
 // ---------- Autenticación ----------
+// Límite de intentos fallidos cada 15 minutos: 10 por usuario y 40 por conexión (IP).
+// El de la IP es más alto porque en la sede muchos estudiantes comparten la misma conexión a internet.
+const VENTANA_LOGIN = 15 * 60 * 1000;
+const MAX_FALLOS = { u: 10, ip: 40 };
+const fallosLogin = new Map(); // clave -> { n, desde }
+const bloqueado = (k) => { const f = fallosLogin.get(k); return f && Date.now() - f.desde < VENTANA_LOGIN && f.n >= MAX_FALLOS[k.split(':')[0]]; };
+function registrarFallo(k) {
+    const f = fallosLogin.get(k);
+    if (!f || Date.now() - f.desde >= VENTANA_LOGIN) fallosLogin.set(k, { n: 1, desde: Date.now() });
+    else f.n++;
+}
+setInterval(() => { for (const [k, f] of fallosLogin) if (Date.now() - f.desde >= VENTANA_LOGIN) fallosLogin.delete(k); }, VENTANA_LOGIN).unref();
+// Hash de relleno: si el usuario no existe se compara igual, para no revelar qué usuarios existen por el tiempo de respuesta
+const HASH_RELLENO = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10);
+
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) {
         return res.status(400).json({ success: false, message: 'Usuario y contraseña son obligatorios' });
+    }
+    const claveIp = 'ip:' + req.ip;
+    const claveUsuario = 'u:' + String(username).trim().toLowerCase();
+    if (bloqueado(claveIp) || bloqueado(claveUsuario)) {
+        return res.status(429).json({ success: false, message: 'Demasiados intentos fallidos. Espera 15 minutos e inténtalo de nuevo.' });
     }
 
     const result = await db.query(
@@ -114,8 +193,12 @@ app.post('/api/auth/login', async (req, res) => {
         [String(username).trim()]
     );
     const user = result.rows[0];
-    const fallo = () => res.status(401).json({ success: false, message: 'Usuario o contraseña incorrectos' });
-    if (!user) return fallo();
+    const fallo = () => {
+        registrarFallo(claveIp);
+        registrarFallo(claveUsuario);
+        return res.status(401).json({ success: false, message: 'Usuario o contraseña incorrectos' });
+    };
+    if (!user) { await bcrypt.compare(String(password), HASH_RELLENO); return fallo(); }
 
     let ok;
     if (user.password_hash.startsWith('$2')) {
@@ -130,7 +213,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
     if (!ok) return fallo();
 
-    res.json({ success: true, ...firmarSesion(user) });
+    fallosLogin.delete(claveUsuario);
+    res.json({ success: true, ...firmarSesion({ ...user, acepto_legal: await aceptoLegal(user.id) }) });
 });
 
 app.get('/api/auth/me', auth, (req, res) => res.json({ success: true, user: req.user }));
@@ -147,7 +231,7 @@ app.get('/api/programas', async (req, res) => {
 // Datos del usuario en sesión (Mis datos personales / Mi programa)
 app.get('/api/perfil', auth, async (req, res) => {
     const r = await db.query(
-        `SELECT u.username, u.nombre_completo, u.email, u.created_at, r.nombre AS rol,
+        `SELECT u.username, u.nombre_completo, u.email, u.created_at, u.tipo_documento, u.documento, u.telefono, r.nombre AS rol,
                 p.id AS programa_id, p.nombre AS programa, p.resolucion AS programa_resolucion
          FROM usuarios u JOIN roles r ON r.id = u.rol_id
          LEFT JOIN programas p ON p.id = u.programa_id
@@ -165,6 +249,9 @@ app.get('/api/perfil', auth, async (req, res) => {
             username: u.username,
             nombre: u.nombre_completo,
             email: u.email,
+            tipo_documento: u.tipo_documento,
+            documento: u.documento,
+            telefono: u.telefono,
             rol: u.rol,
             creado: u.created_at,
             programa: u.programa_id ? { nombre: u.programa, resolucion: u.programa_resolucion, asignaturas } : null
@@ -190,7 +277,23 @@ app.post('/api/auth/cambiar-clave', auth, async (req, res) => {
     }
     const hash = await bcrypt.hash(String(nueva), 10);
     await db.query('UPDATE usuarios SET password_hash = $1, debe_cambiar_clave = FALSE WHERE id = $2', [hash, u.id]);
-    res.json({ success: true, message: 'Contraseña actualizada', ...firmarSesion({ ...u, debe_cambiar_clave: false }) });
+    res.json({ success: true, message: 'Contraseña actualizada', ...firmarSesion({ ...u, debe_cambiar_clave: false, acepto_legal: !req.user.aceptarLegal }) });
+});
+
+// Aceptación de los Términos de uso y la Política de Tratamiento de Datos (queda registrada con fecha, IP y navegador)
+app.post('/api/legal/aceptar', auth, async (req, res) => {
+    if (req.body?.acepta !== true) return res.status(400).json({ success: false, message: 'Debes marcar la casilla de aceptación' });
+    await db.query(
+        `INSERT INTO aceptaciones_legales (usuario_id, version, ip, user_agent) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (usuario_id, version) DO NOTHING`,
+        [req.user.id, VERSION_LEGAL, String(req.ip || '').slice(0, 64), String(req.get('user-agent') || '').slice(0, 300)]
+    );
+    const r = await db.query(
+        `SELECT u.id, u.username, u.nombre_completo, u.email, u.debe_cambiar_clave, r.nombre AS rol
+         FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.id = $1`,
+        [req.user.id]
+    );
+    res.json({ success: true, message: 'Gracias. Tu aceptación quedó registrada', ...firmarSesion({ ...r.rows[0], acepto_legal: true }) });
 });
 
 // ---------- Estudiante: notas ----------
@@ -227,7 +330,7 @@ app.get('/api/docente/asignaturas', auth, rol('Docente', 'Administrador'), async
     let alumnos = [];
     if (ids.length) {
         const r = await db.query(
-            `SELECT m.id AS matricula_id, m.asignatura_id, u.nombre_completo, u.username,
+            `SELECT m.id AS matricula_id, m.asignatura_id, u.nombre_completo, u.username, u.documento,
                     MAX(CASE WHEN c.corte = 1 THEN c.nota END) AS c1,
                     MAX(CASE WHEN c.corte = 2 THEN c.nota END) AS c2,
                     MAX(CASE WHEN c.corte = 3 THEN c.nota END) AS c3
@@ -235,7 +338,7 @@ app.get('/api/docente/asignaturas', auth, rol('Docente', 'Administrador'), async
              JOIN usuarios u ON u.id = m.estudiante_id
              LEFT JOIN calificaciones c ON c.matricula_id = m.id
              WHERE m.asignatura_id = ANY($1)
-             GROUP BY m.id, m.asignatura_id, u.nombre_completo, u.username
+             GROUP BY m.id, m.asignatura_id, u.nombre_completo, u.username, u.documento
              ORDER BY u.nombre_completo`,
             [ids]
         );
@@ -243,6 +346,7 @@ app.get('/api/docente/asignaturas', auth, rol('Docente', 'Administrador'), async
     }
     res.json({
         success: true,
+        notaMinima: NOTA_MINIMA,
         asignaturas: asig.rows.map((a) => ({
             ...a,
             estudiantes: alumnos
@@ -251,6 +355,7 @@ app.get('/api/docente/asignaturas', auth, rol('Docente', 'Administrador'), async
                     matricula_id: s.matricula_id,
                     nombre: s.nombre_completo,
                     username: s.username,
+                    documento: s.documento,
                     ...resumenNotas(s.c1, s.c2, s.c3)
                 }))
         }))
@@ -280,15 +385,86 @@ app.post('/api/docente/notas', auth, rol('Docente', 'Administrador'), async (req
     res.json({ success: true, message: 'Calificación guardada' });
 });
 
+// Asignatura a cargo de quien consulta (el administrador puede ver todas)
+async function asignaturaPermitida(req, id) {
+    const r = await db.query('SELECT id, nombre, docente_id FROM asignaturas WHERE id = $1', [parseInt(id, 10) || 0]);
+    const a = r.rows[0];
+    if (!a) throw httpError(404, 'Asignatura no encontrada');
+    if (req.user.rol === 'Docente' && a.docente_id !== req.user.id) throw httpError(403, 'Esta asignatura no está a tu cargo');
+    return a;
+}
+
+async function estudiantesDeAsignatura(asignaturaId) {
+    const r = await db.query(
+        `SELECT m.id AS matricula_id, u.nombre_completo AS nombre, u.username, u.documento,
+                MAX(CASE WHEN c.corte = 1 THEN c.nota END) AS c1,
+                MAX(CASE WHEN c.corte = 2 THEN c.nota END) AS c2,
+                MAX(CASE WHEN c.corte = 3 THEN c.nota END) AS c3
+         FROM matriculas m JOIN usuarios u ON u.id = m.estudiante_id
+         LEFT JOIN calificaciones c ON c.matricula_id = m.id
+         WHERE m.asignatura_id = $1
+         GROUP BY m.id, u.nombre_completo, u.username, u.documento ORDER BY u.nombre_completo`,
+        [asignaturaId]
+    );
+    return r.rows.map((s) => ({ ...s, ...resumenNotas(s.c1, s.c2, s.c3) }));
+}
+
+const matriculasDe = async (asignaturaId) =>
+    new Set((await db.query('SELECT id FROM matriculas WHERE asignatura_id = $1', [asignaturaId])).rows.map((r) => r.id));
+
+// Guardar varias notas de una asignatura en una sola operación (tabla editable o Excel)
+app.post('/api/docente/notas/lote', auth, rol('Docente', 'Administrador'), async (req, res) => {
+    const a = await asignaturaPermitida(req, req.body?.asignatura_id);
+    const lista = Array.isArray(req.body?.notas) ? req.body.notas : [];
+    if (!lista.length) return res.status(400).json({ success: false, message: 'No hay notas para guardar' });
+    if (lista.length > 3000) return res.status(400).json({ success: false, message: 'Demasiadas notas en una sola carga' });
+    const notas = lista.map((n) => ({ m: parseInt(n.matricula_id, 10), c: parseInt(n.corte, 10), v: Number(n.nota) }));
+    if (notas.some((n) => !Number.isInteger(n.m) || ![1, 2, 3].includes(n.c) || !Number.isFinite(n.v) || n.v < 0 || n.v > 5)) {
+        return res.status(400).json({ success: false, message: 'Hay notas inválidas: deben estar entre 0.0 y 5.0' });
+    }
+    const validos = await matriculasDe(a.id);
+    if (notas.some((n) => !validos.has(n.m))) {
+        return res.status(400).json({ success: false, message: 'Alguna nota es de un estudiante que no está matriculado en esta asignatura' });
+    }
+    // Si una matrícula y corte vienen repetidos, gana el último
+    const unicas = [...new Map(notas.map((n) => [`${n.m}-${n.c}`, n])).values()];
+    await db.query(
+        `INSERT INTO calificaciones (matricula_id, corte, nota)
+         SELECT * FROM unnest($1::int[], $2::int[], $3::numeric[])
+         ON CONFLICT (matricula_id, corte) DO UPDATE SET nota = EXCLUDED.nota, updated_at = CURRENT_TIMESTAMP`,
+        [unicas.map((n) => n.m), unicas.map((n) => n.c), unicas.map((n) => Math.round(n.v * 100) / 100)]
+    );
+    res.json({ success: true, message: `${unicas.length} nota(s) guardada(s) en ${a.nombre}` });
+});
+
+// Planilla Excel de la asignatura con sus estudiantes (para llenar fuera del portal)
+app.get('/api/docente/plantilla/:id', auth, rol('Docente', 'Administrador'), async (req, res) => {
+    const a = await asignaturaPermitida(req, req.params.id);
+    const est = await estudiantesDeAsignatura(a.id);
+    const nombre = `notas-${a.nombre.normalize('NFD').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase()}.xlsx`;
+    await excel.enviar(res, excel.plantillaNotas(a, est), nombre);
+});
+
+// Lee una planilla llena y devuelve las notas para revisarlas en la tabla (no guarda nada)
+app.post('/api/docente/plantilla/:id', auth, rol('Docente', 'Administrador'), subirExcel, async (req, res) => {
+    const a = await asignaturaPermitida(req, req.params.id);
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ success: false, message: 'Selecciona un archivo de Excel' });
+    const wb = await excel.leer(req.body);
+    const { notas, errores } = excel.leerNotas(wb, a.id, await matriculasDe(a.id));
+    res.json({ success: true, notas, errores });
+});
+
 // ---------- Administrador ----------
 app.get('/api/admin/resumen', auth, rol('Administrador'), async (req, res) => {
     const usuarios = await db.query(
-        `SELECT u.id, u.username, u.nombre_completo, u.email, r.nombre AS rol, u.programa_id, p.nombre AS programa
+        `SELECT u.id, u.username, u.nombre_completo, u.email, u.tipo_documento, u.documento, u.telefono,
+                r.nombre AS rol, u.programa_id, p.nombre AS programa
          FROM usuarios u JOIN roles r ON r.id = u.rol_id
          LEFT JOIN programas p ON p.id = u.programa_id ORDER BY u.id`
     );
     const asignaturas = await db.query(
-        `SELECT a.id, a.nombre, a.programa_id, u.nombre_completo AS docente
+        `SELECT a.id, a.nombre, a.programa_id, a.docente_id, u.nombre_completo AS docente,
+                (SELECT COUNT(*) FROM matriculas m WHERE m.asignatura_id = a.id)::int AS estudiantes
          FROM asignaturas a LEFT JOIN usuarios u ON u.id = a.docente_id ORDER BY a.nombre`
     );
     const programas = await db.query(
@@ -308,29 +484,424 @@ app.get('/api/admin/resumen', auth, rol('Administrador'), async (req, res) => {
 });
 
 app.post('/api/admin/usuarios', auth, rol('Administrador'), async (req, res) => {
-    const { username, password, nombre_completo, email, rol: nombreRol, programa_id } = req.body || {};
-    if (!username || !password || !nombre_completo || !email || !nombreRol) {
-        return res.status(400).json({ success: false, message: 'Todos los campos son obligatorios' });
-    }
-    if (String(password).length < 8) {
-        return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
-    }
-    const r = await db.query('SELECT id FROM roles WHERE nombre = $1', [nombreRol]);
+    const b = req.body || {};
+    const username = String(b.username ?? '').trim();
+    const password = String(b.password ?? '');
+    if (!username || !password || !b.rol) return res.status(400).json({ success: false, message: 'Usuario, clave temporal y rol son obligatorios' });
+    if (!RE_USUARIO.test(username)) return res.status(400).json({ success: false, message: 'El usuario solo admite letras, números, punto, guion y guion bajo (3 a 40)' });
+    if (password.length < 8) return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
+    const { errores, datos } = validarPersona(b);
+    if (errores.length) return res.status(400).json({ success: false, message: errores.join('. ') });
+    const r = await db.query('SELECT id FROM roles WHERE nombre = $1', [b.rol]);
     if (!r.rows.length) return res.status(400).json({ success: false, message: 'Rol inválido' });
     try {
-        const hash = await bcrypt.hash(String(password), 10);
+        const hash = await bcrypt.hash(password, 10);
         await db.query(
             // La clave que pone el admin es temporal: el usuario la cambia al entrar
-            `INSERT INTO usuarios (username, password_hash, nombre_completo, email, rol_id, programa_id, debe_cambiar_clave) VALUES ($1, $2, $3, $4, $5, $6, TRUE)`,
-            [String(username).trim(), hash, String(nombre_completo).trim(), String(email).trim(), r.rows[0].id,
-             nombreRol === 'Estudiante' && programa_id ? programa_id : null]
+            `INSERT INTO usuarios (username, password_hash, nombre_completo, email, tipo_documento, documento, telefono, rol_id, programa_id, debe_cambiar_clave)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)`,
+            [username, hash, datos.nombre_completo, datos.email, datos.tipo_documento, datos.documento, datos.telefono, r.rows[0].id,
+             b.rol === 'Estudiante' && b.programa_id ? b.programa_id : null]
         );
         res.status(201).json({ success: true, message: 'Usuario creado: deberá cambiar la clave en su primer ingreso' });
     } catch (e) {
-        if (e.code === '23505') return res.status(409).json({ success: false, message: 'El usuario o el correo ya existen' });
+        if (e.code === '23505') return res.status(409).json({ success: false, message: 'El usuario, el correo o el documento ya existen' });
         if (e.code === '23503' || e.code === '22P02') return res.status(400).json({ success: false, message: 'Programa inválido' });
         throw e;
     }
+});
+
+// Editar los datos de un usuario (y, si se pide, asignarle una nueva clave temporal)
+app.put('/api/admin/usuarios/:id', auth, rol('Administrador'), async (req, res) => {
+    const id = parseInt(req.params.id, 10) || 0;
+    const b = req.body || {};
+    const actual = (await db.query(
+        'SELECT u.id, r.nombre AS rol FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1', [id])).rows[0];
+    if (!actual) return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    const { errores, datos } = validarPersona(b);
+    const nuevaClave = String(b.nueva_clave ?? '');
+    if (nuevaClave && nuevaClave.length < 8) errores.push('La nueva clave temporal debe tener al menos 8 caracteres');
+    if (errores.length) return res.status(400).json({ success: false, message: errores.join('. ') });
+    const programa = actual.rol === 'Estudiante' && b.programa_id ? parseInt(b.programa_id, 10) || null : null;
+    try {
+        await db.query(
+            `UPDATE usuarios SET nombre_completo = $2, email = $3, tipo_documento = $4, documento = $5, telefono = $6, programa_id = $7
+             WHERE id = $1`,
+            [id, datos.nombre_completo, datos.email, datos.tipo_documento, datos.documento, datos.telefono, programa]
+        );
+        if (nuevaClave) {
+            await db.query('UPDATE usuarios SET password_hash = $2, debe_cambiar_clave = TRUE WHERE id = $1', [id, await bcrypt.hash(nuevaClave, 10)]);
+        }
+        res.json({ success: true, message: nuevaClave ? 'Datos actualizados. Deberá cambiar la clave temporal al entrar' : 'Datos actualizados' });
+    } catch (e) {
+        if (e.code === '23505') return res.status(409).json({ success: false, message: 'Ese correo o documento ya pertenece a otro usuario' });
+        if (e.code === '23503') return res.status(400).json({ success: false, message: 'Programa inválido' });
+        throw e;
+    }
+});
+
+// Plantilla Excel para crear muchos usuarios a la vez
+app.get('/api/admin/plantilla/usuarios', auth, rol('Administrador'), async (req, res) => {
+    const roles = (await db.query('SELECT nombre FROM roles ORDER BY id')).rows.map((r) => r.nombre);
+    const programas = (await db.query('SELECT nombre FROM programas ORDER BY nombre')).rows.map((p) => p.nombre);
+    await excel.enviar(res, excel.plantillaUsuarios(roles, programas), 'plantilla-usuarios-cepdeco.xlsx');
+});
+
+// Exportar los usuarios actuales en el mismo formato de la plantilla (para corregir datos y volver a subir)
+app.get('/api/admin/usuarios/exportar', auth, rol('Administrador'), async (req, res) => {
+    const roles = (await db.query('SELECT nombre FROM roles ORDER BY id')).rows.map((r) => r.nombre);
+    const programas = (await db.query('SELECT nombre FROM programas ORDER BY nombre')).rows.map((p) => p.nombre);
+    const usuarios = (await db.query(
+        `SELECT u.username, u.nombre_completo, u.email, u.tipo_documento, u.documento, u.telefono, r.nombre AS rol, p.nombre AS programa
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id LEFT JOIN programas p ON p.id = u.programa_id
+         ORDER BY r.id, u.nombre_completo`
+    )).rows;
+    const hoy = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+    await excel.enviar(res, excel.plantillaUsuarios(roles, programas, usuarios), `usuarios-cepdeco-${hoy}.xlsx`);
+});
+
+// Carga masiva: crea los usuarios nuevos y actualiza los que ya existen (por nombre de usuario).
+// Sin ?confirmar=1 solo muestra la vista previa; con confirmar aplica todo o nada.
+app.post('/api/admin/usuarios/lote', auth, rol('Administrador'), subirExcel, async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ success: false, message: 'Selecciona un archivo de Excel' });
+    const { filas, error } = excel.leerUsuarios(await excel.leer(req.body));
+    if (error) return res.status(400).json({ success: false, message: error });
+    if (!filas.length) return res.status(400).json({ success: false, message: 'La hoja "Usuarios" está vacía' });
+
+    const sinTilde = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const roles = new Map((await db.query('SELECT id, nombre FROM roles')).rows.map((r) => [r.nombre.toLowerCase(), r]));
+    const programas = (await db.query('SELECT id, nombre FROM programas')).rows;
+    const programaPorNombre = new Map(programas.map((p) => [sinTilde(p.nombre), p]));
+    const programaPorId = new Map(programas.map((p) => [p.id, p]));
+    const docs = filas.map((f) => f.documento.replace(/[.\s]/g, '')).filter(Boolean);
+    const relacionados = (await db.query(
+        `SELECT u.id, u.username, u.nombre_completo, u.email, u.tipo_documento, u.documento, u.telefono, u.programa_id, r.nombre AS rol
+         FROM usuarios u JOIN roles r ON r.id = u.rol_id
+         WHERE LOWER(u.username) = ANY($1) OR LOWER(u.email) = ANY($2) OR u.documento = ANY($3)`,
+        [filas.map((f) => f.username.toLowerCase()), filas.map((f) => f.email.toLowerCase()), docs]
+    )).rows;
+    const porUsuario = new Map(relacionados.map((u) => [u.username.toLowerCase(), u]));
+    const duenoCorreo = new Map(relacionados.map((u) => [u.email.toLowerCase(), u.id]));
+    const duenoDoc = new Map(relacionados.filter((u) => u.documento).map((u) => [u.documento, u.id]));
+    const enArchivo = { u: new Set(), e: new Set(), d: new Set() };
+
+    const revisadas = filas.map((f) => {
+        const u = f.username.toLowerCase();
+        const actual = porUsuario.get(u) || null;
+        const avisos = [];
+        // En un usuario existente, documento/teléfono/programa vacíos = sin cambio
+        const entrada = {
+            nombre_completo: f.nombre, email: f.email,
+            tipo_documento: f.documento ? f.tipo_documento : actual?.tipo_documento,
+            documento: f.documento || actual?.documento,
+            telefono: f.telefono || actual?.telefono
+        };
+        const { errores, datos } = validarPersona(entrada);
+        if (!RE_USUARIO.test(f.username)) errores.unshift('Usuario inválido (letras, números, . - _; 3 a 40)');
+        else if (enArchivo.u.has(u)) errores.unshift('Usuario repetido en el archivo');
+        const id = actual?.id ?? null;
+        if (duenoCorreo.has(datos.email) && duenoCorreo.get(datos.email) !== id) errores.push('El correo ya pertenece a otro usuario');
+        else if (enArchivo.e.has(datos.email)) errores.push('Correo repetido en el archivo');
+        if (datos.documento && duenoDoc.has(datos.documento) && duenoDoc.get(datos.documento) !== id) errores.push('El documento ya pertenece a otro usuario');
+        else if (datos.documento && enArchivo.d.has(datos.documento)) errores.push('Documento repetido en el archivo');
+
+        let rolNombre;
+        let rolId = null;
+        if (actual) {
+            rolNombre = actual.rol;
+            if (f.rol && f.rol.toLowerCase() !== actual.rol.toLowerCase()) avisos.push(`El rol no se cambia desde Excel (se mantiene ${actual.rol})`);
+            if (f.clave) avisos.push('La clave no se cambia desde Excel (usa el botón Editar)');
+        } else {
+            const r = roles.get(f.rol.toLowerCase());
+            if (!r) errores.push('Rol inválido (Estudiante, Docente o Administrador)');
+            rolNombre = r?.nombre || f.rol;
+            rolId = r?.id ?? null;
+            if (f.clave && f.clave.length < 8) errores.push('La clave temporal debe tener al menos 8 caracteres');
+        }
+
+        // Programa: solo estudiantes. Vacío en un existente = se mantiene el actual
+        let programa = actual?.programa_id ? programaPorId.get(actual.programa_id) : null;
+        if (rolNombre === 'Estudiante' && f.programa) {
+            programa = programaPorNombre.get(sinTilde(f.programa)) || null;
+            if (!programa) errores.push('Programa no encontrado: elígelo de la lista');
+        } else if (rolNombre !== 'Estudiante' && f.programa) {
+            avisos.push('El programa solo aplica a estudiantes (se ignora)');
+        }
+        if (f.periodo && !RE_PERIODO.test(f.periodo)) errores.push('Periodo inválido (ej. 2026-B)');
+        else if (f.periodo && rolNombre === 'Estudiante' && !programa) errores.push('Para matricular hay que indicar el programa del estudiante');
+        else if (f.periodo && rolNombre !== 'Estudiante') avisos.push('El periodo solo aplica a estudiantes (se ignora)');
+        const periodo = rolNombre === 'Estudiante' && programa && RE_PERIODO.test(f.periodo) ? f.periodo : null;
+
+        // Qué cambia en un usuario existente
+        const cambios = [];
+        if (actual) {
+            const comparar = (campo, antes, despues) => { if ((antes ?? '') !== (despues ?? '')) cambios.push({ campo, antes: antes ?? '', despues: despues ?? '' }); };
+            comparar('Nombre', actual.nombre_completo, datos.nombre_completo);
+            comparar('Correo', actual.email.toLowerCase(), datos.email);
+            comparar('Tipo documento', actual.tipo_documento, datos.tipo_documento);
+            comparar('Documento', actual.documento, datos.documento);
+            comparar('Teléfono', actual.telefono, datos.telefono);
+            if (rolNombre === 'Estudiante') comparar('Programa', programaPorId.get(actual.programa_id)?.nombre, programa?.nombre);
+        }
+        if (periodo) cambios.push({ campo: 'Matrícula', antes: '', despues: `${programa.nombre} · ${periodo}` });
+
+        enArchivo.u.add(u);
+        if (datos.email) enArchivo.e.add(datos.email);
+        if (datos.documento) enArchivo.d.add(datos.documento);
+        const accion = errores.length ? 'error' : !actual ? 'crear' : cambios.length ? 'actualizar' : 'sin cambios';
+        return { fila: f.fila, username: f.username, actual, accion, rolNombre, rolId, programa, periodo, clave: f.clave, datos, cambios, avisos, errores };
+    });
+
+    const cuenta = (a) => revisadas.filter((r) => r.accion === a).length;
+    const resumen = { crear: cuenta('crear'), actualizar: cuenta('actualizar'), sinCambios: cuenta('sin cambios'), errores: cuenta('error') };
+    if (req.query.confirmar !== '1' || resumen.errores || !(resumen.crear + resumen.actualizar)) {
+        return res.json({
+            success: true, confirmado: false, resumen, conErrores: resumen.errores,
+            filas: revisadas.map((r) => ({ fila: r.fila, username: r.username, nombre: r.datos.nombre_completo, rol: r.rolNombre, accion: r.accion,
+                documento: r.datos.documento, programa: r.programa?.nombre || null, periodo: r.periodo, cambios: r.cambios, avisos: r.avisos, errores: r.errores }))
+        });
+    }
+
+    // Todo o nada: si algo falla, no se guarda ningún cambio
+    const cliente = await db.pool.connect();
+    const creados = [];
+    let actualizados = 0;
+    try {
+        await cliente.query('BEGIN');
+        for (const r of revisadas) {
+            if (r.accion === 'sin cambios') continue;
+            let id = r.actual?.id;
+            if (r.accion === 'crear') {
+                const clave = r.clave || claveTemporal();
+                id = (await cliente.query(
+                    `INSERT INTO usuarios (username, password_hash, nombre_completo, email, tipo_documento, documento, telefono, rol_id, programa_id, debe_cambiar_clave)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE) RETURNING id`,
+                    [r.username, await bcrypt.hash(clave, 10), r.datos.nombre_completo, r.datos.email, r.datos.tipo_documento,
+                     r.datos.documento, r.datos.telefono, r.rolId, r.rolNombre === 'Estudiante' ? r.programa?.id || null : null]
+                )).rows[0].id;
+                creados.push({ username: r.username, nombre: r.datos.nombre_completo, rol: r.rolNombre, clave_generada: r.clave ? null : clave });
+            } else {
+                await cliente.query(
+                    `UPDATE usuarios SET nombre_completo = $2, email = $3, tipo_documento = $4, documento = $5, telefono = $6, programa_id = $7 WHERE id = $1`,
+                    [id, r.datos.nombre_completo, r.datos.email, r.datos.tipo_documento, r.datos.documento, r.datos.telefono,
+                     r.rolNombre === 'Estudiante' ? r.programa?.id || null : null]
+                );
+                actualizados++;
+            }
+            if (r.periodo) {
+                await cliente.query(
+                    `INSERT INTO matriculas (estudiante_id, asignatura_id, periodo)
+                     SELECT $1, a.id, $3 FROM asignaturas a WHERE a.programa_id = $2 ON CONFLICT DO NOTHING`,
+                    [id, r.programa.id, r.periodo]
+                );
+            }
+        }
+        await cliente.query('COMMIT');
+    } catch (e) {
+        await cliente.query('ROLLBACK').catch(() => {});
+        if (e.code === '23505') return res.status(409).json({ success: false, message: 'Algún usuario, correo o documento se repite con otro usuario. No se guardó ningún cambio.' });
+        throw e;
+    } finally {
+        cliente.release();
+    }
+    const partes = [creados.length && `${creados.length} usuario(s) creado(s)`, actualizados && `${actualizados} actualizado(s)`].filter(Boolean);
+    res.status(201).json({ success: true, confirmado: true, message: partes.join(' y '), creados, actualizados });
+});
+
+// Quién ve qué: cada matrícula con su estudiante, asignatura, curso y docente
+async function listaMatriculas() {
+    return (await db.query(
+        `SELECT m.id, m.periodo, e.id AS estudiante_id, e.username AS usuario, e.nombre_completo AS estudiante, e.tipo_documento, e.documento,
+                a.id AS asignatura_id, a.nombre AS asignatura, p.nombre AS curso, d.nombre_completo AS docente
+         FROM matriculas m
+         JOIN usuarios e ON e.id = m.estudiante_id
+         JOIN asignaturas a ON a.id = m.asignatura_id
+         LEFT JOIN programas p ON p.id = a.programa_id
+         LEFT JOIN usuarios d ON d.id = a.docente_id
+         ORDER BY m.periodo DESC, a.nombre, e.nombre_completo`
+    )).rows;
+}
+
+app.get('/api/admin/matriculas', auth, rol('Administrador'), async (req, res) => {
+    res.json({ success: true, matriculas: await listaMatriculas() });
+});
+
+// Docente válido por id (o null = sin docente)
+async function docenteValido(cliente, docenteId) {
+    if (!docenteId) return null;
+    const r = await cliente.query(`SELECT u.id FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE u.id = $1 AND r.nombre = 'Docente'`, [docenteId]);
+    if (!r.rows.length) throw httpError(400, 'El docente elegido no existe o no tiene rol Docente');
+    return r.rows[0].id;
+}
+
+// Editar una asignatura: nombre, curso y docente
+app.put('/api/admin/asignaturas/:id', auth, rol('Administrador'), async (req, res) => {
+    const id = parseInt(req.params.id, 10) || 0;
+    const b = req.body || {};
+    const nombre = String(b.nombre ?? '').trim().replace(/\s+/g, ' ');
+    if (nombre.length < 2 || nombre.length > 150) return res.status(400).json({ success: false, message: 'El nombre debe tener entre 2 y 150 caracteres' });
+    const programa = b.programa_id ? parseInt(b.programa_id, 10) || null : null;
+    const docente = await docenteValido(db, b.docente_id ? parseInt(b.docente_id, 10) || 0 : null);
+    try {
+        const r = await db.query('UPDATE asignaturas SET nombre = $2, programa_id = $3, docente_id = $4 WHERE id = $1', [id, nombre, programa, docente]);
+        if (!r.rowCount) return res.status(404).json({ success: false, message: 'Asignatura no encontrada' });
+        res.json({ success: true, message: 'Asignatura actualizada' });
+    } catch (e) {
+        if (e.code === '23505') return res.status(409).json({ success: false, message: 'Ya existe otra asignatura con ese nombre' });
+        if (e.code === '23503') return res.status(400).json({ success: false, message: 'Curso inválido' });
+        throw e;
+    }
+});
+
+// Excel de cursos, asignaturas y matrículas (para consultar o corregir y volver a subir)
+app.get('/api/admin/academico/exportar', auth, rol('Administrador'), async (req, res) => {
+    const asignaturas = (await db.query(
+        `SELECT a.id, a.nombre, p.nombre AS curso, d.username AS docente_usuario, d.nombre_completo AS docente,
+                (SELECT COUNT(*) FROM matriculas m WHERE m.asignatura_id = a.id)::int AS estudiantes
+         FROM asignaturas a LEFT JOIN programas p ON p.id = a.programa_id LEFT JOIN usuarios d ON d.id = a.docente_id
+         ORDER BY p.nombre NULLS LAST, a.nombre`
+    )).rows;
+    const cursos = (await db.query('SELECT nombre FROM programas ORDER BY nombre')).rows.map((p) => p.nombre);
+    const docentes = (await db.query(`SELECT u.username FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'Docente' ORDER BY u.username`)).rows.map((u) => u.username);
+    const matriculas = (await listaMatriculas()).map((m) => ({ ...m, documento: m.documento ? `${m.tipo_documento || ''} ${m.documento}`.trim() : '' }));
+    const hoy = new Date(Date.now() - 5 * 3600 * 1000).toISOString().slice(0, 10);
+    await excel.enviar(res, excel.plantillaAcademico({ asignaturas, matriculas, cursos, docentes }), `cursos-y-matriculas-cepdeco-${hoy}.xlsx`);
+});
+
+// Carga del Excel académico: sin ?confirmar=1 muestra la vista previa; con confirmar aplica todo o nada
+app.post('/api/admin/academico/lote', auth, rol('Administrador'), subirExcel, async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ success: false, message: 'Selecciona un archivo de Excel' });
+    const leido = excel.leerAcademico(await excel.leer(req.body));
+    if (leido.error) return res.status(400).json({ success: false, message: leido.error });
+
+    const sinTilde = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const cursos = (await db.query('SELECT id, nombre FROM programas')).rows;
+    const cursoPorNombre = new Map(cursos.map((c) => [sinTilde(c.nombre), c]));
+    const cursoPorId = new Map(cursos.map((c) => [c.id, c]));
+    const docentes = (await db.query(`SELECT u.id, u.username, u.nombre_completo FROM usuarios u JOIN roles r ON r.id = u.rol_id WHERE r.nombre = 'Docente'`)).rows;
+    const docentePorUsuario = new Map(docentes.map((d) => [d.username.toLowerCase(), d]));
+    const docentePorId = new Map(docentes.map((d) => [d.id, d]));
+    const asigBD = (await db.query('SELECT id, nombre, programa_id, docente_id FROM asignaturas')).rows;
+    const asigPorId = new Map(asigBD.map((a) => [a.id, a]));
+    const asigPorNombre = new Map(asigBD.map((a) => [sinTilde(a.nombre), a]));
+
+    // 1) Asignaturas: con ID = actualizar; sin ID = crear
+    const nombresArchivo = new Map();
+    const asignaturas = leido.asignaturas.map((f) => {
+        const errores = [];
+        const id = f.id ? parseInt(f.id, 10) : null;
+        const actual = id ? asigPorId.get(id) : null;
+        if (f.id && !actual) errores.push(`No existe una asignatura con ID ${f.id}. Para crear una, deja el ID vacío`);
+        if (f.nombre.length < 2 || f.nombre.length > 150) errores.push('El nombre debe tener entre 2 y 150 caracteres');
+        const clave = sinTilde(f.nombre);
+        const otra = asigPorNombre.get(clave);
+        if (f.nombre && otra && otra.id !== actual?.id) errores.push('Ya existe otra asignatura con ese nombre');
+        else if (nombresArchivo.has(clave)) errores.push('Nombre repetido en el archivo');
+        nombresArchivo.set(clave, true);
+        const curso = f.curso ? cursoPorNombre.get(sinTilde(f.curso)) : null;
+        if (f.curso && !curso) errores.push('Curso no encontrado: elígelo de la lista');
+        const docente = f.docente ? docentePorUsuario.get(f.docente.toLowerCase()) : null;
+        if (f.docente && !docente) errores.push('Docente no encontrado: usa el usuario de un docente (de la lista)');
+        const cambios = [];
+        if (actual) {
+            const c = (campo, antes, despues) => { if ((antes ?? '') !== (despues ?? '')) cambios.push({ campo, antes: antes ?? '', despues: despues ?? '' }); };
+            c('Nombre', actual.nombre, f.nombre);
+            c('Curso', cursoPorId.get(actual.programa_id)?.nombre, curso?.nombre);
+            c('Docente', docentePorId.get(actual.docente_id)?.nombre_completo, docente?.nombre_completo);
+        }
+        const accion = errores.length ? 'error' : !actual ? 'crear' : cambios.length ? 'actualizar' : 'sin cambios';
+        return { fila: f.fila, id: actual?.id ?? null, nombre: f.nombre, curso, docente, accion, cambios, errores, avisos: [] };
+    });
+    const nuevasAsig = new Map(asignaturas.filter((a) => a.accion === 'crear').map((a) => [sinTilde(a.nombre), a]));
+    // Nombre vigente de cada asignatura después de los cambios del archivo
+    const asigFinal = new Map(asigBD.map((a) => [sinTilde(a.nombre), a.id]));
+    asignaturas.filter((a) => a.accion === 'actualizar').forEach((a) => { asigFinal.set(sinTilde(a.nombre), a.id); });
+
+    // 2) Matrículas: solo se agregan (nunca se borran, para no perder notas)
+    const usuarios = [...new Set(leido.matriculas.map((m) => m.usuario.toLowerCase()))];
+    const estudiantes = new Map((await db.query(
+        `SELECT u.id, u.username, u.nombre_completo FROM usuarios u JOIN roles r ON r.id = u.rol_id
+         WHERE r.nombre = 'Estudiante' AND LOWER(u.username) = ANY($1)`, [usuarios]
+    )).rows.map((u) => [u.username.toLowerCase(), u]));
+    const existentes = new Map((await db.query('SELECT estudiante_id, asignatura_id, periodo FROM matriculas')).rows.map((m) => [`${m.estudiante_id}-${m.asignatura_id}`, m.periodo]));
+    const enArchivo = new Set();
+    const periodoPorDefecto = periodoActual();
+    const matriculas = leido.matriculas.map((f) => {
+        const errores = [];
+        const avisos = [];
+        const est = estudiantes.get(f.usuario.toLowerCase());
+        if (!f.usuario) errores.push('Falta el usuario del estudiante');
+        else if (!est) errores.push('No existe un estudiante con ese usuario');
+        const clave = sinTilde(f.asignatura);
+        const asigId = asigFinal.get(clave) ?? null;
+        const nueva = nuevasAsig.get(clave);
+        if (!f.asignatura) errores.push('Falta la asignatura');
+        else if (!asigId && !nueva) errores.push('Asignatura no encontrada: elígela de la lista');
+        const periodo = f.periodo || periodoPorDefecto;
+        if (f.periodo && !RE_PERIODO.test(f.periodo)) errores.push('Periodo inválido (ej. 2026-B)');
+        let accion = 'crear';
+        if (est && asigId) {
+            const k = `${est.id}-${asigId}`;
+            if (existentes.has(k)) {
+                accion = 'sin cambios';
+                if (f.periodo && existentes.get(k) !== f.periodo) avisos.push(`Ya está matriculado en ${existentes.get(k)}; el periodo no se cambia desde Excel`);
+            } else if (enArchivo.has(k)) { accion = 'sin cambios'; avisos.push('Fila repetida en el archivo'); }
+            enArchivo.add(k);
+        }
+        if (errores.length) accion = 'error';
+        return { fila: f.fila, usuario: f.usuario, estudiante: est?.nombre_completo || '', estudianteId: est?.id, asignatura: f.asignatura, asigId, nueva: nueva ? clave : null, periodo, accion, errores, avisos };
+    });
+
+    const cuenta = (lista, a) => lista.filter((x) => x.accion === a).length;
+    const resumen = {
+        asignaturas: { crear: cuenta(asignaturas, 'crear'), actualizar: cuenta(asignaturas, 'actualizar'), sinCambios: cuenta(asignaturas, 'sin cambios'), errores: cuenta(asignaturas, 'error') },
+        matriculas: { crear: cuenta(matriculas, 'crear'), sinCambios: cuenta(matriculas, 'sin cambios'), errores: cuenta(matriculas, 'error') }
+    };
+    const errores = resumen.asignaturas.errores + resumen.matriculas.errores;
+    const porHacer = resumen.asignaturas.crear + resumen.asignaturas.actualizar + resumen.matriculas.crear;
+    const visible = (x) => x.accion !== 'sin cambios' || x.avisos.length;
+    if (req.query.confirmar !== '1' || errores || !porHacer) {
+        return res.json({
+            success: true, confirmado: false, resumen,
+            asignaturas: asignaturas.filter(visible).map((a) => ({ fila: a.fila, nombre: a.nombre, curso: a.curso?.nombre || null, docente: a.docente?.nombre_completo || null, accion: a.accion, cambios: a.cambios, errores: a.errores })),
+            matriculas: matriculas.filter(visible).map((m) => ({ fila: m.fila, usuario: m.usuario, estudiante: m.estudiante, asignatura: m.asignatura, periodo: m.periodo, accion: m.accion, errores: m.errores, avisos: m.avisos }))
+        });
+    }
+
+    const cliente = await db.pool.connect();
+    try {
+        await cliente.query('BEGIN');
+        const idNueva = new Map();
+        for (const a of asignaturas) {
+            if (a.accion === 'crear') {
+                const r = await cliente.query('INSERT INTO asignaturas (nombre, programa_id, docente_id) VALUES ($1, $2, $3) RETURNING id', [a.nombre, a.curso?.id || null, a.docente?.id || null]);
+                idNueva.set(sinTilde(a.nombre), r.rows[0].id);
+            } else if (a.accion === 'actualizar') {
+                await cliente.query('UPDATE asignaturas SET nombre = $2, programa_id = $3, docente_id = $4 WHERE id = $1', [a.id, a.nombre, a.curso?.id || null, a.docente?.id || null]);
+            }
+        }
+        const nuevas = matriculas.filter((m) => m.accion === 'crear');
+        if (nuevas.length) {
+            await cliente.query(
+                `INSERT INTO matriculas (estudiante_id, asignatura_id, periodo)
+                 SELECT * FROM unnest($1::int[], $2::int[], $3::varchar[]) ON CONFLICT DO NOTHING`,
+                [nuevas.map((m) => m.estudianteId), nuevas.map((m) => m.asigId ?? idNueva.get(m.nueva)), nuevas.map((m) => m.periodo)]
+            );
+        }
+        await cliente.query('COMMIT');
+    } catch (e) {
+        await cliente.query('ROLLBACK').catch(() => {});
+        if (e.code === '23505') return res.status(409).json({ success: false, message: 'Algún nombre de asignatura se repite. No se guardó ningún cambio.' });
+        throw e;
+    } finally {
+        cliente.release();
+    }
+    const partes = [
+        resumen.asignaturas.crear && `${resumen.asignaturas.crear} asignatura(s) creada(s)`,
+        resumen.asignaturas.actualizar && `${resumen.asignaturas.actualizar} asignatura(s) actualizada(s)`,
+        resumen.matriculas.crear && `${resumen.matriculas.crear} matrícula(s) nueva(s)`
+    ].filter(Boolean);
+    res.status(201).json({ success: true, confirmado: true, message: partes.join(', ') });
 });
 
 app.post('/api/admin/asignaturas', auth, rol('Administrador'), async (req, res) => {
@@ -501,6 +1072,10 @@ app.post('/api/pagos/confirmar', auth, async (req, res) => {
 // Webhook de ePayco (solo funciona con URL pública, ej. Render). Se valida la firma.
 app.post('/api/pagos/webhook', async (req, res) => {
     const b = req.body || {};
+    if (!process.env.EPAYCO_P_KEY || !process.env.EPAYCO_CUSTOMER_ID) {
+        console.warn('[ePayco Webhook] Falta EPAYCO_P_KEY o EPAYCO_CUSTOMER_ID: no se puede validar la firma, se ignora');
+        return res.status(503).send('Webhook no configurado');
+    }
     console.log(`[ePayco Webhook] Ref: ${b.x_ref_payco} | Factura: ${b.x_id_invoice} | Código: ${b.x_cod_response}`);
     const firma = crypto
         .createHash('sha256')
@@ -643,6 +1218,12 @@ app.get('/api/certificados/:codigo/pdf', auth, async (req, res) => {
         .text(`Código: ${cert.codigo_verificacion}`, 190, qrY + 28)
         .text('Escanee el código QR para validar la autenticidad', 190, qrY + 44)
         .text(urlVerificacion, 190, qrY + 60, { width: 360 });
+    // En la demo, marca de agua: los certificados de prueba no tienen validez (lo dicen los Términos de uso)
+    if (MODO_DEMO) {
+        doc.save().rotate(-35, { origin: [306, 396] }).fontSize(46).fillColor('#c53030').fillOpacity(0.18)
+            .text('DOCUMENTO DE PRUEBA', 0, 340, { width: 612, align: 'center', lineBreak: false })
+            .fontSize(24).text('Sin validez · Versión de demostración', 0, 410, { width: 612, align: 'center', lineBreak: false }).restore();
+    }
     doc.end();
 });
 
@@ -668,6 +1249,7 @@ app.get('/verificar/:codigo', async (req, res) => {
     const caja = c
         ? `<p class="estado ok"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Certificado válido</p>
            <p class="nota">Este documento fue emitido por CEPDECO y está activo.</p>
+           ${MODO_DEMO ? '<p class="nota"><strong>Versión de demostración:</strong> este es un certificado de prueba y no tiene validez académica.</p>' : ''}
            <dl>
              <dt>Titular</dt><dd>${escapeHtml(c.nombre_completo)}</dd>
              <dt>Documento</dt><dd>${escapeHtml(c.tipo_certificado)}</dd>
@@ -679,8 +1261,7 @@ app.get('/verificar/:codigo', async (req, res) => {
            Revisa que lo hayas escrito completo o escanea de nuevo el QR.</p>`;
     res.status(c ? 200 : 404).send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Verificación de certificado - CEPDECO</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/fonts/fonts.css">
 <style>
   :root { --azul:#1d3a8a; --azul-oscuro:#14295f; --amarillo:#f2c200; --rojo:#d52b1e; --tinta:#1b2330; --tinta-2:#46505f; --tinta-3:#5f6a79;
           --linea:#e1e5eb; --fondo:#f3f5f8; --ok-fondo:#e6f4ea; --ok-tinta:#1b5e31; --error-fondo:#fdeceb; --error-tinta:#9f2318; }
@@ -708,14 +1289,15 @@ app.get('/verificar/:codigo', async (req, res) => {
   @media (max-width:520px) { .barra { padding:10px 16px; } .barra span { display:none; } .tarjeta { padding:24px 20px; } main { padding:24px 16px; } }
 </style></head>
 <body>
-<div class="barra"><strong>CEPDECO</strong><span>Verificación de certificados</span></div>
+<header class="barra"><strong>CEPDECO</strong><span>Verificación de certificados</span></header>
 <div class="franja"></div>
 <main><div class="tarjeta">
-  <img class="logo" src="/img/logo-cepdeco.png" width="787" height="672" alt="CEPDECO">
+  <img class="logo" src="/img/logo-cepdeco.png" width="360" height="307" alt="CEPDECO">
   <h1>Verificación pública de certificados</h1>
   ${caja}
 </div></main>
-<footer>${RAZON_SOCIAL} · NIT ${NIT}<br>Licencia de funcionamiento: ${LICENCIA}</footer>
+<footer>${RAZON_SOCIAL} · NIT ${NIT}<br>Licencia de funcionamiento: ${LICENCIA}<br>
+<a href="/legal/privacidad.html">Tratamiento de datos</a> · <a href="/legal/terminos.html">Términos de uso</a></footer>
 </body></html>`);
 });
 
@@ -729,6 +1311,8 @@ const esErrorDeBD = (err) =>
 
 app.use((err, req, res, next) => {
     if (err.type === 'entity.parse.failed') return res.status(400).json({ success: false, message: 'JSON inválido' });
+    if (err.type === 'entity.too.large') return res.status(413).json({ success: false, message: 'El archivo es muy grande (máximo 2 MB)' });
+    if (err.status && err.status < 500) return res.status(err.status).json({ success: false, message: err.message });
     if (res.headersSent) return next(err);
     if (esErrorDeBD(err)) {
         console.error(`❌ Sin conexión con la BD (${err.code || 'sin código'}): ${err.message}`);

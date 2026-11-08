@@ -1,0 +1,93 @@
+/* Estilo compartido de las páginas legales (mismos colores y tipografía del portal) */
+:root {
+    --azul: #1d3a8a;
+    --azul-oscuro: #14295f;
+    --azul-tinte: #eaeffa;
+    --amarillo: #f2c200;
+    --rojo: #d52b1e;
+    --tinta: #1b2330;
+    --tinta-2: #46505f;
+    --tinta-3: #5f6a79;
+    --linea: #e1e5eb;
+    --fondo: #f3f5f8;
+    --aviso-fondo: #fdf2dc;
+    --aviso-tinta: #7a4f00;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    background: var(--fondo);
+    color: var(--tinta);
+}
+::selection { background: var(--azul-tinte); color: var(--azul-oscuro); }
+a { color: var(--azul); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+.saltar { position: absolute; left: 12px; top: -60px; z-index: 1000; background: var(--azul); color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+.saltar:focus { top: 12px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+#contenido:focus { outline: none; }
+
+.aviso-borrador {
+    background: var(--amarillo);
+    color: var(--tinta);
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 6px 16px;
+}
+
+.barra { background: var(--azul-oscuro); color: #fff; padding: 12px 32px; }
+.marca { display: inline-flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
+.marca strong { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.02em; }
+.marca > span:last-child { font-size: 0.9375rem; color: #c9d3ea; padding-left: 12px; border-left: 1px solid rgba(255, 255, 255, 0.3); }
+.logo-mini {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff url(/img/logo-cepdeco.png) no-repeat;
+    background-size: 62px auto;
+    background-position: -11px 3px;
+}
+.franja { height: 4px; background: linear-gradient(90deg, var(--amarillo) 0 50%, var(--azul) 50% 75%, var(--rojo) 75% 100%); }
+
+.legal { max-width: 880px; margin: 0 auto; padding: 32px 20px 48px; }
+.legal-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.legal-nav a {
+    padding: 6px 14px;
+    border: 1px solid #c5cfe3;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+.legal-nav a[aria-current="page"] { background: var(--azul); border-color: var(--azul); color: #fff; }
+
+article { background: #fff; border: 1px solid var(--linea); border-radius: 12px; padding: 36px 40px; }
+article h1 { font-size: 1.875rem; line-height: 1.2; color: var(--azul-oscuro); text-wrap: balance; }
+.meta { color: var(--tinta-3); font-size: 0.9375rem; margin: 6px 0 24px; }
+article h2 { font-size: 1.25rem; color: var(--tinta); margin: 32px 0 10px; padding-top: 24px; border-top: 1px solid var(--linea); }
+article h2:first-of-type { border-top: none; padding-top: 0; }
+article p, article li { max-width: 72ch; color: var(--tinta-2); text-wrap: pretty; }
+article p + p { margin-top: 10px; }
+article ul, article ol { padding-left: 22px; margin: 8px 0; }
+article li + li { margin-top: 4px; }
+article strong { color: var(--tinta); }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.9375rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linea); vertical-align: top; color: var(--tinta-2); }
+th { background: #f7f8fa; color: var(--tinta); font-weight: 600; }
+.tabla-wrap { overflow-x: auto; }
+
+/* Lo que CEPDECO debe definir o confirmar */
+.pendiente { background: var(--aviso-fondo); color: var(--aviso-tinta); padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+
+.legal-pie { text-align: center; color: var(--tinta-3); font-size: 0.875rem; padding: 0 20px 40px; }
+
+@media (max-width: 640px) {
+    .barra { padding: 10px 16px; }
+    .marca > span:last-child { display: none; }
+    article { padding: 24px 18px; }
+    article h1 { font-size: 1.5rem; }
+}
