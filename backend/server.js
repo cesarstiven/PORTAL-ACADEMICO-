@@ -67,7 +67,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nuevaReferencia = (usuarioId) => `CEP-${Date.now()}-${usuarioId}-${crypto.randomBytes(2).toString('hex')}`;
 
-function auth(req, res, next) {
+// Huella corta de la contraseña guardada: va dentro del token. Si la clave cambia (o el admin la resetea),
+// la huella deja de coincidir y todas las sesiones anteriores se cierran al instante.
+const huellaClave = (hash) => crypto.createHash('sha256').update(String(hash)).digest('base64url').slice(0, 16);
+
+async function auth(req, res, next) {
     const h = req.headers.authorization || '';
     const token = h.startsWith('Bearer ') ? h.slice(7) : null;
     if (!token) return res.status(401).json({ success: false, message: 'Sesión requerida' });
@@ -76,12 +80,17 @@ function auth(req, res, next) {
     } catch {
         return res.status(401).json({ success: false, message: 'Sesión inválida o expirada' });
     }
+    const actual = (await db.query('SELECT password_hash FROM usuarios WHERE id = $1', [req.user.id])).rows[0];
+    if (!actual || req.user.hc !== huellaClave(actual.password_hash)) {
+        return res.status(401).json({ success: false, message: 'Tu sesión se cerró porque la contraseña cambió. Inicia sesión de nuevo.' });
+    }
     // Sin aceptar los documentos legales solo se permite consultar la sesión y aceptarlos
     if (req.user.aceptarLegal && !['/api/auth/me', '/api/legal/aceptar'].includes(req.path)) {
         return res.status(403).json({ success: false, message: 'Debes aceptar los Términos de uso y la Política de Tratamiento de Datos para continuar' });
     }
     // Con clave temporal solo se permite consultar la sesión y cambiar la clave
-    if (req.user.cambiarClave && !['/api/auth/me', '/api/auth/cambiar-clave'].includes(req.path)) {
+    // (y aceptar los documentos legales, que van primero: un usuario nuevo tiene ambos pendientes)
+    if (req.user.cambiarClave && !['/api/auth/me', '/api/auth/cambiar-clave', '/api/legal/aceptar'].includes(req.path)) {
         return res.status(403).json({ success: false, message: 'Debes cambiar tu contraseña temporal antes de continuar' });
     }
     next();
@@ -93,7 +102,7 @@ const aceptoLegal = async (usuarioId) =>
     (await db.query('SELECT 1 FROM aceptaciones_legales WHERE usuario_id = $1 AND version = $2', [usuarioId, VERSION_LEGAL])).rowCount > 0;
 
 const firmarSesion = (u) => {
-    const perfil = { id: u.id, username: u.username, nombre: u.nombre_completo, email: u.email, rol: u.rol, cambiarClave: !!u.debe_cambiar_clave, aceptarLegal: !u.acepto_legal };
+    const perfil = { id: u.id, username: u.username, nombre: u.nombre_completo, email: u.email, rol: u.rol, cambiarClave: !!u.debe_cambiar_clave, aceptarLegal: !u.acepto_legal, hc: huellaClave(u.password_hash) };
     return { token: jwt.sign(perfil, JWT_SECRET, { expiresIn: '8h' }), user: perfil };
 };
 
@@ -209,6 +218,7 @@ app.post('/api/auth/login', async (req, res) => {
         if (ok) {
             const nuevo = await bcrypt.hash(String(password), 10);
             await db.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [nuevo, user.id]);
+            user.password_hash = nuevo;
         }
     }
     if (!ok) return fallo();
@@ -277,7 +287,7 @@ app.post('/api/auth/cambiar-clave', auth, async (req, res) => {
     }
     const hash = await bcrypt.hash(String(nueva), 10);
     await db.query('UPDATE usuarios SET password_hash = $1, debe_cambiar_clave = FALSE WHERE id = $2', [hash, u.id]);
-    res.json({ success: true, message: 'Contraseña actualizada', ...firmarSesion({ ...u, debe_cambiar_clave: false, acepto_legal: !req.user.aceptarLegal }) });
+    res.json({ success: true, message: 'Contraseña actualizada', ...firmarSesion({ ...u, password_hash: hash, debe_cambiar_clave: false, acepto_legal: await aceptoLegal(u.id) }) });
 });
 
 // Aceptación de los Términos de uso y la Política de Tratamiento de Datos (queda registrada con fecha, IP y navegador)
@@ -289,7 +299,7 @@ app.post('/api/legal/aceptar', auth, async (req, res) => {
         [req.user.id, VERSION_LEGAL, String(req.ip || '').slice(0, 64), String(req.get('user-agent') || '').slice(0, 300)]
     );
     const r = await db.query(
-        `SELECT u.id, u.username, u.nombre_completo, u.email, u.debe_cambiar_clave, r.nombre AS rol
+        `SELECT u.id, u.username, u.nombre_completo, u.email, u.password_hash, u.debe_cambiar_clave, r.nombre AS rol
          FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.id = $1`,
         [req.user.id]
     );
@@ -1040,9 +1050,27 @@ app.post('/api/pagos/iniciar', auth, rol('Estudiante'), async (req, res) => {
         referencia,
         monto: PRECIO_CERTIFICADO,
         publicKey: process.env.EPAYCO_PUBLIC_KEY,
+        test: MODO_DEMO,
         confirmationUrl: `${PUBLIC_URL}/api/pagos/webhook`
     });
 });
+
+// Firma de ePayco: solo quien tiene las llaves del comercio (CEPDECO) puede producirla
+function firmaEpaycoValida(d) {
+    if (!process.env.EPAYCO_P_KEY || !process.env.EPAYCO_CUSTOMER_ID || !d.x_signature) return false;
+    const firma = crypto
+        .createHash('sha256')
+        .update([process.env.EPAYCO_CUSTOMER_ID, process.env.EPAYCO_P_KEY, d.x_ref_payco, d.x_transaction_id, d.x_amount, d.x_currency_code].join('^'))
+        .digest('hex');
+    return safeEqual(firma, String(d.x_signature));
+}
+// En la demo los pagos de prueba (Sandbox) son lo esperado. Con MODO_DEMO=off se rechazan, igual que otra moneda.
+function problemaPagoReal(d) {
+    if (MODO_DEMO) return null;
+    if (String(d.x_test_request).toUpperCase() === 'TRUE') return 'Es un pago de prueba, no un pago real';
+    if (String(d.x_currency_code).toUpperCase() !== 'COP') return 'El pago no está en pesos colombianos';
+    return null;
+}
 
 // El frontend llama aquí al volver de ePayco (?ref_payco=...). Se valida directo con ePayco.
 app.post('/api/pagos/confirmar', auth, async (req, res) => {
@@ -1057,6 +1085,12 @@ app.post('/api/pagos/confirmar', auth, async (req, res) => {
         if (!r.data || !r.data.success || !data) throw new Error('Respuesta sin datos');
     } catch (e) {
         return res.status(502).json({ success: false, message: 'No se pudo validar el pago con ePayco, intenta de nuevo' });
+    }
+    // Con pagos reales (MODO_DEMO=off): la transacción debe estar firmada con las llaves de CEPDECO
+    // (así se sabe que es de su comercio), no ser de prueba y estar en pesos.
+    if (!MODO_DEMO) {
+        const problema = !firmaEpaycoValida(data) ? 'El pago no pertenece al comercio de CEPDECO' : problemaPagoReal(data);
+        if (problema) return res.status(400).json({ success: false, message: problema });
     }
     const estado = await aplicarPago({
         referencia: data.x_id_invoice,
@@ -1077,13 +1111,14 @@ app.post('/api/pagos/webhook', async (req, res) => {
         return res.status(503).send('Webhook no configurado');
     }
     console.log(`[ePayco Webhook] Ref: ${b.x_ref_payco} | Factura: ${b.x_id_invoice} | Código: ${b.x_cod_response}`);
-    const firma = crypto
-        .createHash('sha256')
-        .update([process.env.EPAYCO_CUSTOMER_ID, process.env.EPAYCO_P_KEY, b.x_ref_payco, b.x_transaction_id, b.x_amount, b.x_currency_code].join('^'))
-        .digest('hex');
-    if (!b.x_signature || !safeEqual(firma, b.x_signature)) {
+    if (!firmaEpaycoValida(b)) {
         console.warn('[ePayco Webhook] Firma inválida, se ignora');
         return res.status(400).send('Firma inválida');
+    }
+    const problema = problemaPagoReal(b);
+    if (problema) {
+        console.warn(`[ePayco Webhook] ${problema}, se ignora`);
+        return res.status(400).send(problema);
     }
     await aplicarPago({
         referencia: b.x_id_invoice,

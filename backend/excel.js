@@ -1,6 +1,7 @@
 // Plantillas Excel (descargar / cargar) para notas del docente y carga masiva de usuarios.
 // Solo se leen valores de celdas: las fórmulas se toman por su resultado y nunca se ejecutan.
 const ExcelJS = require('exceljs');
+const zlib = require('zlib');
 
 const MAX_FILAS = 1000;
 const AZUL = 'FF1D3A8A';
@@ -27,7 +28,41 @@ function nota(v) {
     return Number.isFinite(n) && n >= 0 && n <= 5 ? Math.round(n * 100) / 100 : NaN;
 }
 
+// Un .xlsx es un zip. Antes de abrirlo se descomprime cada parte con tope de bytes, para que un archivo
+// pequeño "inflado" (bomba zip) no llene la memoria del servidor. Las plantillas reales pesan menos de 1 MB.
+const MAX_DESCOMPRIMIDO = 30 * 1024 * 1024;
+const MAX_PARTES = 300;
+function revisarZip(buf) {
+    const malo = () => { const e = new Error('El archivo es demasiado grande o no es un Excel válido (.xlsx). Descarga la plantilla y úsala tal cual.'); e.status = 400; return e; };
+    if (!Buffer.isBuffer(buf) || buf.length < 22) throw malo();
+    let fin = -1; // registro "End of central directory" (firma 0x06054b50), al final del archivo
+    for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 65535); i--) if (buf.readUInt32LE(i) === 0x06054b50) { fin = i; break; }
+    if (fin < 0) throw malo();
+    const partes = buf.readUInt16LE(fin + 10);
+    let p = buf.readUInt32LE(fin + 16);
+    if (partes > MAX_PARTES) throw malo();
+    let total = 0;
+    for (let k = 0; k < partes; k++) {
+        if (p + 46 > buf.length || buf.readUInt32LE(p) !== 0x02014b50) throw malo();
+        const metodo = buf.readUInt16LE(p + 10);
+        const comprimido = buf.readUInt32LE(p + 20);
+        const local = buf.readUInt32LE(p + 42);
+        p += 46 + buf.readUInt16LE(p + 28) + buf.readUInt16LE(p + 30) + buf.readUInt16LE(p + 32);
+        if (local + 30 > buf.length || buf.readUInt32LE(local) !== 0x04034b50) throw malo();
+        const inicio = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+        const datos = buf.subarray(inicio, inicio + comprimido);
+        if (datos.length !== comprimido) throw malo();
+        const resta = MAX_DESCOMPRIMIDO - total;
+        if (metodo === 0) total += comprimido;
+        else if (metodo === 8) {
+            try { total += zlib.inflateRawSync(datos, { maxOutputLength: resta + 1 }).length; } catch { throw malo(); }
+        } else throw malo();
+        if (total > MAX_DESCOMPRIMIDO) throw malo();
+    }
+}
+
 async function leer(buffer) {
+    revisarZip(buffer);
     const wb = new ExcelJS.Workbook();
     try {
         await wb.xlsx.load(buffer);

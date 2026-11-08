@@ -1987,7 +1987,7 @@ const cargarEpayco = () => epaycoListo ??= new Promise((ok, falla) => {
 const pagar = (btn) => conCarga(btn, async () => {
     try {
         const [p] = await Promise.all([api('/api/pagos/iniciar', { method: 'POST' }), cargarEpayco()]);
-        const handler = ePayco.checkout.configure({ key: p.publicKey, test: true });
+        const handler = ePayco.checkout.configure({ key: p.publicKey, test: p.test !== false });
         handler.open({
             name: 'Expedición Certificado Académico',
             description: 'Certificado de Estudios CEPDECO',
